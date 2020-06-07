@@ -151,6 +151,7 @@ static void taosDeleteTimer(void *tharg) {
 static pthread_t timerThread;
 static timer_t         timerId;
 static volatile bool stopTimer = false;
+static volatile int  thread_joined = 0;
 
 void *taosProcessAlarmSignal(void *tharg) {
   // Block the signal
@@ -220,7 +221,10 @@ int taosInitTimer(void (*callback)(int), int ms) {
 
 void taosUninitTimer() {
   stopTimer = true;
-  pthread_join(timerThread, NULL);
+  if (!thread_joined) {
+    pthread_join(timerThread, NULL);
+    thread_joined = 1;
+  }
 }
 
 ssize_t tread(int fd, void *buf, size_t count) {

@@ -18,6 +18,8 @@
 #include "tsched.h"
 #include "ttimer.h"
 
+#include "tutil.h"
+
 #define DUMP_SCHEDULER_TIME_WINDOW 30000 //every 30sec, take a snap shot of task queue.
 
 typedef struct {
@@ -34,6 +36,7 @@ typedef struct {
   bool            stop;
   void*           pTmrCtrl;
   void*           pTimer;
+  int             tasks;
 } SSchedQueue;
 
 static void *taosProcessSchedQueue(void *param);
@@ -129,6 +132,7 @@ void *taosProcessSchedQueue(void *param) {
       }
       uError("wait %s fullSem failed(%s)", pSched->label, strerror(errno));
     }
+
     if (pSched->stop) {
       break;
     }
@@ -150,6 +154,9 @@ void *taosProcessSchedQueue(void *param) {
       (*(msg.fp))(&msg);
     else if (msg.tfp)
       (*(msg.tfp))(msg.ahandle, msg.thandle);
+
+    --pSched->tasks;
+
   }
 
   return NULL;
@@ -175,6 +182,7 @@ int taosScheduleTask(void *qhandle, SSchedMsg *pMsg) {
 
   pSched->queue[pSched->emptySlot] = *pMsg;
   pSched->emptySlot = (pSched->emptySlot + 1) % pSched->queueSize;
+  ++pSched->tasks;
 
   if (pthread_mutex_unlock(&pSched->queueMutex) != 0)
     uError("unlock %s queueMutex failed(%s)", pSched->label, strerror(errno));
@@ -192,26 +200,50 @@ void taosCleanUpScheduler(void *param) {
   pSched->stop = true;
   for (int i = 0; i < pSched->numOfThreads; ++i) {
     if (pSched->qthread[i]) {
-      tsem_post(&pSched->fullSem);
+      if (taos_is_destroyable()) {
+        tsem_post(&pSched->fullSem);
+      }
     }
   }
   for (int i = 0; i < pSched->numOfThreads; ++i) {
     if (pSched->qthread[i]) {
-      pthread_join(pSched->qthread[i], NULL);
+      if (taos_is_destroyable()) {
+        pthread_join(pSched->qthread[i], NULL);
+      }
     }
   }
+  if (taos_is_destroyable()) {
+    pSched->numOfThreads = 0;
+  }
 
-  tsem_destroy(&pSched->emptySem);
-  tsem_destroy(&pSched->fullSem);
-  pthread_mutex_destroy(&pSched->queueMutex);
+  if (taos_is_destroyable()) {
+    tsem_destroy(&pSched->emptySem);
+    tsem_destroy(&pSched->fullSem);
+    pthread_mutex_destroy(&pSched->queueMutex);
+  }
   
   if (pSched->pTimer) {
     taosTmrStopA(&pSched->pTimer);
+    if (taos_is_destroyable()) {
+      pSched->pTimer = NULL;
+    }
   }
 
-  if (pSched->queue) free(pSched->queue);
-  if (pSched->qthread) free(pSched->qthread);
-  free(pSched); // fix memory leak
+  if (pSched->queue) {
+    if (taos_is_destroyable()) {
+      free(pSched->queue);
+      pSched->queue = NULL;
+    }
+  }
+  if (pSched->qthread) {
+    if (taos_is_destroyable()) {
+      free(pSched->qthread);
+      pSched->qthread = NULL;
+    }
+  }
+  if (taos_is_destroyable()) {
+    free(pSched); // fix memory leak
+  }
 }
 
 // for debug purpose, dump the scheduler status every 1min.

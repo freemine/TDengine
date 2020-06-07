@@ -69,22 +69,39 @@ int32_t dnodeInitVnodeWrite() {
 
 void dnodeCleanupVnodeWrite() {
   for (int32_t i = 0; i < wWorkerPool.max; ++i) {
-    SWriteWorker *pWorker =  wWorkerPool.writeWorker + i;
-    if (pWorker->thread) {
-      taosQsetThreadResume(pWorker->qset);
+    if (wWorkerPool.writeWorker) {
+      SWriteWorker *pWorker =  wWorkerPool.writeWorker + i;
+      if (pWorker->thread) {
+        if (taos_is_cancellable()) {
+          taosQsetThreadResume(pWorker->qset);
+        }
+      }
     }
   }
   
   for (int32_t i = 0; i < wWorkerPool.max; ++i) {
-    SWriteWorker *pWorker =  wWorkerPool.writeWorker + i;
-    if (pWorker->thread) {
-      pthread_join(pWorker->thread, NULL);
-      taosFreeQall(pWorker->qall);
-      taosCloseQset(pWorker->qset);
+    if (wWorkerPool.writeWorker) {
+      SWriteWorker *pWorker =  wWorkerPool.writeWorker + i;
+      if (pWorker->thread) {
+        if (taos_is_cancellable()) {
+          pthread_join(pWorker->thread, NULL);
+        }
+        taosFreeQall(pWorker->qall);
+        if (taos_is_destroyable()) {
+          pWorker->qall = NULL;
+        }
+        taosCloseQset(pWorker->qset);
+        if (taos_is_destroyable()) {
+          pWorker->qset = NULL;
+        }
+      }
     }
   }
 
-  free(wWorkerPool.writeWorker);
+  if (taos_is_destroyable()) {
+    free(wWorkerPool.writeWorker);
+    wWorkerPool.writeWorker = NULL;
+  }
   dPrint("dnode write is closed");
 }
 

@@ -24,6 +24,7 @@ int taosGetFqdn(char *fqdn) {
   hostname[1023] = '\0';
   gethostname(hostname, 1023);
 
+#if 0
   struct hostent* h;
   h = gethostbyname(hostname);
   if (h != NULL) {
@@ -37,6 +38,22 @@ int taosGetFqdn(char *fqdn) {
   // free(h);
 
   return code;
+#else
+  struct addrinfo hints = {0};
+  struct addrinfo *result = NULL;
+
+  hints.ai_flags = AI_CANONNAME;
+
+  getaddrinfo(hostname, NULL, &hints, &result);
+  if (result) {
+    strcpy(fqdn, result->ai_canonname);
+    freeaddrinfo(result);
+  } else {
+    code = -1;
+  }
+
+  return code;
+#endif
 }
 
 uint32_t taosGetIpFromFqdn(const char *fqdn) {

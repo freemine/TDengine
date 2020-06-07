@@ -18,6 +18,8 @@
 #include "taoserror.h"
 #include "tqueue.h"
 
+#include "tutil.h"
+
 typedef struct STaosQnode {
   int                 type;
   struct STaosQnode  *next;
@@ -159,7 +161,9 @@ void *taosAllocateQall() {
 }
 
 void taosFreeQall(void *param) {
-  free(param);
+  if (taos_is_destroyable()) {
+    free(param);
+  }
 }
 
 int taosReadAllQitems(taos_queue param, taos_qall p2) {
@@ -228,10 +232,12 @@ taos_qset taosOpenQset() {
 
 void taosCloseQset(taos_qset param) {
   if (param == NULL) return;
-  STaosQset *qset = (STaosQset *)param;
-  pthread_mutex_destroy(&qset->mutex);
-  tsem_destroy(&qset->sem);
-  free(qset);
+  if (taos_is_destroyable()) {
+    STaosQset *qset = (STaosQset *)param;
+    pthread_mutex_destroy(&qset->mutex);
+    tsem_destroy(&qset->sem);
+    free(qset);
+  }
 }
 
 // tsem_post 'qset->sem', so that reader threads waiting for it

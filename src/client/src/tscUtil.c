@@ -348,6 +348,7 @@ static void tscFreeQueryInfo(SSqlCmd* pCmd) {
   
   pCmd->numOfClause = 0;
   tfree(pCmd->pQueryInfo);
+  pCmd->pQueryInfo = NULL;
 }
 
 void tscResetSqlCmdObj(SSqlCmd* pCmd) {
@@ -359,8 +360,10 @@ void tscResetSqlCmdObj(SSqlCmd* pCmd) {
   pCmd->parseFinished = 0;
   pCmd->autoCreated = 0;
   
-  taosHashCleanup(pCmd->pTableList);
-  pCmd->pTableList = NULL;
+  if (pCmd->pTableList) {
+    taosHashCleanup(pCmd->pTableList);
+    pCmd->pTableList = NULL;
+  }
   
   pCmd->pDataBlocks = tscDestroyBlockArrayList(pCmd->pDataBlocks);
   
@@ -752,16 +755,29 @@ int32_t tscMergeTableDataBlocks(SSqlObj* pSql, SDataBlockList* pTableDataBlockLi
 void tscCloseTscObj(STscObj* pObj) {
   assert(pObj != NULL);
   
-  pObj->signature = NULL;
+  if (taos_is_destroyable()) {
+    pObj->signature = NULL;
+  }
   taosTmrStopA(&(pObj->pTimer));
-  pthread_mutex_destroy(&pObj->mutex);
+  if (taos_is_destroyable()) {
+    pObj->pTimer = NULL;
+    pthread_mutex_destroy(&pObj->mutex);
+  }
   
   if (pObj->pDnodeConn != NULL) {
     rpcClose(pObj->pDnodeConn);
+    if (taos_is_destroyable()) {
+      pObj->pDnodeConn = NULL;
+    }
   }
   
   tscTrace("%p DB connection is closed, dnodeConn:%p", pObj, pObj->pDnodeConn);
-  tfree(pObj);
+  if (taos_is_destroyable()) {
+    assert(pObj->pHb==NULL);
+    assert(pObj->sqlList==NULL);
+    assert(pObj->streamList==NULL);
+    tfree(pObj);
+  }
 }
 
 bool tscIsInsertData(char* sqlstr) {
@@ -1439,7 +1455,9 @@ void tscSetFreeHeatBeat(STscObj* pObj) {
 
   // to denote the heart-beat timer close connection and free all allocated resources
   SQueryInfo* pQueryInfo = tscGetQueryInfoDetail(&pHeatBeat->cmd, 0);
-  pQueryInfo->type = TSDB_QUERY_TYPE_FREE_RESOURCE;
+  if (taos_is_cancellable()) {
+    pQueryInfo->type = TSDB_QUERY_TYPE_FREE_RESOURCE;
+  }
 }
 
 bool tscShouldFreeHeatBeat(SSqlObj* pHb) {

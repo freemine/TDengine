@@ -207,9 +207,11 @@ void taos_close(TAOS *taos) {
 
   if (pObj->pHb != NULL) {
     tscSetFreeHeatBeat(pObj);
-  } else {
-    tscCloseTscObj(pObj);
+    if (taos_is_destroyable()) {
+      pObj->pHb = NULL;
+    }
   }
+  tscCloseTscObj(pObj);
 }
 
 int taos_query_imp(STscObj *pObj, SSqlObj *pSql) {
@@ -644,6 +646,8 @@ void taos_stop_query(TAOS_RES *res) {
 
   SSqlObj *pSql = (SSqlObj *)res;
   SSqlCmd *pCmd = &pSql->cmd;
+
+  if (!pCmd) return;
 
   if (pSql->signature != pSql) return;
   tscTrace("%p start to cancel query", res);

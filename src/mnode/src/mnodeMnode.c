@@ -162,8 +162,11 @@ int32_t mnodeInitMnodes() {
 }
 
 void mnodeCleanupMnodes() {
-  sdbCloseTable(tsMnodeSdb);
-  mnodeMnodeDestroyLock();
+  if (taos_is_destroyable()) {
+    sdbCloseTable(tsMnodeSdb);
+    tsMnodeSdb = NULL;
+    mnodeMnodeDestroyLock();
+  }
 }
 
 int32_t mnodeGetMnodesNum() { 

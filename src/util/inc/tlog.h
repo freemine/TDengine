@@ -36,6 +36,17 @@ void    taosPrintLog(const char *const flags, int32_t dflag, const char *const f
 void    taosPrintLongString(const char *const flags, int32_t dflag, const char *const format, ...);
 void    taosDumpData(unsigned char *msg, int32_t len);
 
+#define D(fmt, ...) do {                                                    \
+  char  buf[1024];                                                          \
+  int   bytes = sizeof(buf);                                                \
+  char *p = buf;                                                            \
+  int   n;                                                                  \
+  n = snprintf(p, bytes, fmt, ##__VA_ARGS__);                               \
+  p += n; bytes -= n;                                                       \
+  n = snprintf(p, bytes, "#%s(%s[%d])", __FUNCTION__, __FILE__, __LINE__);  \
+  printf("%s\n", buf);                                                      \
+} while (0)
+
 #ifdef __cplusplus
 }
 #endif

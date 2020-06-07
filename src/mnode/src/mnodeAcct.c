@@ -117,8 +117,11 @@ int32_t mnodeInitAccts() {
 }
 
 void mnodeCleanupAccts() {
-  sdbCloseTable(tsAcctSdb);
-  acctCleanUp();
+  if (taos_is_destroyable()) {
+    sdbCloseTable(tsAcctSdb);
+    tsAcctSdb = NULL;
+    acctCleanUp();
+  }
 }
 
 void *mnodeGetAcct(char *name) {

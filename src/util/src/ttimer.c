@@ -67,6 +67,7 @@ typedef struct tmr_obj_t {
   };
   TAOS_TMR_CALLBACK fp;
   void*             param;
+  int               stopping;
 } tmr_obj_t;
 
 typedef struct timer_list_t {
@@ -107,7 +108,7 @@ static time_wheel_t wheels[] = {
     {.resolution = 1000, .size = 1024},
     {.resolution = 60000, .size = 1024},
 };
-static timer_map_t timerMap;
+static timer_map_t timerMap = {0};
 
 static uintptr_t getNextTimerId() {
   uintptr_t id;
@@ -435,20 +436,33 @@ bool taosTmrStop(tmr_h timerId) {
     return false;
   }
 
-  uint8_t state = atomic_val_compare_exchange_8(&timer->state, TIMER_STATE_WAITING, TIMER_STATE_CANCELED);
-  doStopTimer(timer, state);
-  timerDecRef(timer);
+  if (taos_is_cancellable()) {
+    timer->stopping = 1;
+  }
 
-  return state == TIMER_STATE_WAITING;
+  if (taos_is_destroyable()) {
+    uint8_t state = atomic_val_compare_exchange_8(&timer->state, TIMER_STATE_WAITING, TIMER_STATE_CANCELED);
+    doStopTimer(timer, state);
+    timerDecRef(timer);
+
+    return state == TIMER_STATE_WAITING;
+  }
+  return false;
 }
 
 bool taosTmrStopA(tmr_h* timerId) {
   bool ret = taosTmrStop(*timerId);
-  *timerId = NULL;
+  if (taos_is_destroyable()) {
+    *timerId = NULL;
+  }
   return ret;
 }
 
 bool taosTmrReset(TAOS_TMR_CALLBACK fp, int mseconds, void* param, void* handle, tmr_h* pTmrId) {
+  if (taos_is_cancellable() || taos_is_destroyable()) {
+    ;
+  }
+
   tmr_ctrl_t* ctrl = (tmr_ctrl_t*)handle;
   if (ctrl == NULL || ctrl->label[0] == 0) {
     return NULL;
@@ -457,6 +471,9 @@ bool taosTmrReset(TAOS_TMR_CALLBACK fp, int mseconds, void* param, void* handle,
   uintptr_t  id = (uintptr_t)*pTmrId;
   bool       stopped = false;
   tmr_obj_t* timer = findTimer(id);
+  if (timer && timer->stopping) {
+    return false;
+  }
   if (timer == NULL) {
     tmrTrace("%s timer[id=%" PRIuPTR "] does not exist", ctrl->label, id);
   } else {
@@ -491,7 +508,7 @@ bool taosTmrReset(TAOS_TMR_CALLBACK fp, int mseconds, void* param, void* handle,
 }
 
 static void taosTmrModuleInit(void) {
-  tmrCtrls = malloc(sizeof(tmr_ctrl_t) * taosMaxTmrCtrl);
+  tmrCtrls = calloc(taosMaxTmrCtrl, sizeof(tmr_ctrl_t));
   if (tmrCtrls == NULL) {
     tmrError("failed to allocate memory for timer controllers.");
     return;
@@ -537,6 +554,9 @@ static void taosTmrModuleInit(void) {
 }
 
 void* taosTmrInit(int maxNumOfTmrs, int resolution, int longest, const char* label) {
+  /* maxNumOfTmrs not used */
+  /* resolution not used */
+  /* longest not used */
   pthread_once(&tmrModuleInit, taosTmrModuleInit);
 
   pthread_mutex_lock(&tmrCtrlMutex);
@@ -559,44 +579,70 @@ void* taosTmrInit(int maxNumOfTmrs, int resolution, int longest, const char* lab
 }
 
 void taosTmrCleanUp(void* handle) {
+  // taosUninitTimer();
+  // if (tmrQhandle) {
+  //   taosCleanUpScheduler(tmrQhandle);
+  //   if (taos_is_destroyable()) {
+  //     tmrQhandle = NULL;
+  //   }
+  // }
+  if (tmrCtrls == NULL) return;
   tmr_ctrl_t* ctrl = (tmr_ctrl_t*)handle;
-  if (ctrl == NULL || ctrl->label[0] == 0) {
-    return;
-  }
+  if (ctrl == NULL) return;
 
   tmrTrace("%s timer controller is cleaned up.", ctrl->label);
-  ctrl->label[0] = 0;
+  if (taos_is_cancellable()) {
+    ctrl->label[0] = 0;
+  }
 
-  pthread_mutex_lock(&tmrCtrlMutex);
-  ctrl->next = unusedTmrCtrl;
-  numOfTmrCtrl--;
-  unusedTmrCtrl = ctrl;
-  pthread_mutex_unlock(&tmrCtrlMutex);
+  if (taos_is_destroyable()) {
+    pthread_mutex_lock(&tmrCtrlMutex);
+    ctrl->next = unusedTmrCtrl;
+    numOfTmrCtrl--;
+    unusedTmrCtrl = ctrl;
+    pthread_mutex_unlock(&tmrCtrlMutex);
+  }
 
   if (numOfTmrCtrl <=0) {
     taosUninitTimer();
 
-    taosCleanUpScheduler(tmrQhandle);
+    if (tmrQhandle) {
+      taosCleanUpScheduler(tmrQhandle);
+      if (taos_is_destroyable()) {
+        tmrQhandle = NULL;
+      }
+    }
 
     for (int i = 0; i < tListLen(wheels); i++) {
       time_wheel_t* wheel = wheels + i;
-      pthread_mutex_destroy(&wheel->mutex);
-      free(wheel->slots);
+      if (taos_is_destroyable()) {
+        pthread_mutex_destroy(&wheel->mutex);
+        free(wheel->slots);
+        wheel->slots = NULL;
+      }
     }
 
-    pthread_mutex_destroy(&tmrCtrlMutex);
+    if (taos_is_destroyable()) {
+      pthread_mutex_destroy(&tmrCtrlMutex);
+    }
 
     for (size_t i = 0; i < timerMap.size; i++) {
       timer_list_t* list = timerMap.slots + i;
       tmr_obj_t* t = list->timers;
       while (t != NULL) {
         tmr_obj_t* next = t->mnext;
-        free(t);
+        if (taos_is_destroyable()) {
+          free(t);
+        }
         t = next;
       }
     }
-    free(timerMap.slots);
-    free(tmrCtrls);
+    if (taos_is_destroyable()) {
+      free(timerMap.slots);
+      timerMap.slots = NULL;
+      free(tmrCtrls);
+      tmrCtrls = NULL;
+    }
 
     tmrTrace("timer module is cleaned up");
   }

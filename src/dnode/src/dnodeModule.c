@@ -24,6 +24,8 @@
 #include "dnodeInt.h"
 #include "dnodeModule.h"
 
+#include "tutil.h"
+
 typedef struct {
   bool      enable;
   char *    name;
@@ -86,15 +88,21 @@ static void dnodeAllocModules() {
 void dnodeCleanupModules() {
   for (EModuleType module = 1; module < TSDB_MOD_MAX; ++module) {
     if (tsModule[module].enable && tsModule[module].stopFp) {
-      (*tsModule[module].stopFp)();
+      if (taos_is_cancellable()) {
+        (*tsModule[module].stopFp)();
+      }
     }
     if (tsModule[module].cleanUpFp) {
-      (*tsModule[module].cleanUpFp)();
+      if (taos_is_destroyable()) {
+        (*tsModule[module].cleanUpFp)();
+      }
     }
   }
 
-  if (tsModule[TSDB_MOD_MNODE].enable && tsModule[TSDB_MOD_MNODE].cleanUpFp) {
-    (*tsModule[TSDB_MOD_MNODE].cleanUpFp)();
+  if (/*tsModule[TSDB_MOD_MNODE].enable &&*/ tsModule[TSDB_MOD_MNODE].cleanUpFp) {
+    if (taos_is_destroyable()) {
+      (*tsModule[TSDB_MOD_MNODE].cleanUpFp)();
+    }
   }
 }
 

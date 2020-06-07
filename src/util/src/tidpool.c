@@ -17,6 +17,8 @@
 #include "tulog.h"
 #include <stdbool.h>
 
+#include "tutil.h"
+
 typedef struct {
   int             maxId;
   int             numOfFree;
@@ -75,15 +77,17 @@ void taosFreeId(void *handle, int id) {
   id_pool_t *pIdPool = handle;
   if (handle == NULL) return;
 
-  pthread_mutex_lock(&pIdPool->mutex);
+  if (taos_is_destroyable()) {
+    pthread_mutex_lock(&pIdPool->mutex);
 
-  int slot = (id - 1) % pIdPool->maxId;
-  if (pIdPool->freeList[slot]) {
-    pIdPool->freeList[slot] = false;
-    pIdPool->numOfFree++;
+    int slot = (id - 1) % pIdPool->maxId;
+    if (pIdPool->freeList[slot]) {
+      pIdPool->freeList[slot] = false;
+      pIdPool->numOfFree++;
+    }
+
+    pthread_mutex_unlock(&pIdPool->mutex);
   }
-
-  pthread_mutex_unlock(&pIdPool->mutex);
 }
 
 void taosIdPoolCleanUp(void *handle) {

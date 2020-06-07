@@ -366,7 +366,10 @@ static int32_t mnodeInitChildTables() {
 }
 
 static void mnodeCleanupChildTables() {
-  sdbCloseTable(tsChildTableSdb);
+  if (taos_is_destroyable()) {
+    sdbCloseTable(tsChildTableSdb);
+    tsChildTableSdb = NULL;
+  }
 }
 
 static void mnodeAddTableIntoStable(SSuperTableObj *pStable, SChildTableObj *pCtable) {
@@ -536,7 +539,10 @@ static int32_t mnodeInitSuperTables() {
 }
 
 static void mnodeCleanupSuperTables() {
-  sdbCloseTable(tsSuperTableSdb);
+  if (taos_is_destroyable()) {
+    sdbCloseTable(tsSuperTableSdb);
+    tsSuperTableSdb = NULL;
+  }
 }
 
 int32_t mnodeInitTables() {

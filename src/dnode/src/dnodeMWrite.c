@@ -62,18 +62,27 @@ int32_t dnodeInitMnodeWrite() {
 }
 
 void dnodeCleanupMnodeWrite() {
-  for (int32_t i = 0; i < tsMWritePool.num; ++i) {
-    SMWriteWorker *pWorker = tsMWritePool.writeWorker + i;
-    if (pWorker->thread) {
-      taosQsetThreadResume(tsMWriteQset);
+  if (taos_is_cancellable() && tsMWritePool.writeWorker) {
+    for (int32_t i = 0; i < tsMWritePool.num; ++i) {
+      SMWriteWorker *pWorker = tsMWritePool.writeWorker + i;
+      if (pWorker->thread) {
+        taosQsetThreadResume(tsMWriteQset);
+      }
+    }
+
+    for (int32_t i = 0; i < tsMWritePool.num; ++i) {
+      SMWriteWorker *pWorker = tsMWritePool.writeWorker + i;
+      if (pWorker->thread) {
+        pthread_join(pWorker->thread, NULL);
+      }
     }
   }
 
-  for (int32_t i = 0; i < tsMWritePool.num; ++i) {
-    SMWriteWorker *pWorker = tsMWritePool.writeWorker + i;
-    if (pWorker->thread) {
-      pthread_join(pWorker->thread, NULL);
-    }
+  if (taos_is_destroyable()) {
+    free(tsMWritePool.writeWorker);
+    tsMWritePool.writeWorker = NULL;
+    taosCloseQset(tsMWriteQset);
+    tsMWriteQset = NULL;
   }
 
   dPrint("dnode mwrite is closed");
@@ -106,8 +115,10 @@ int32_t dnodeAllocateMnodeWqueue() {
 }
 
 void dnodeFreeMnodeWqueue() {
-  taosCloseQueue(tsMWriteQueue);
-  tsMWriteQueue = NULL;
+  if (taos_is_destroyable()) {
+    taosCloseQueue(tsMWriteQueue);
+    tsMWriteQueue = NULL;
+  }
 }
 
 void dnodeDispatchToMnodeWriteQueue(SRpcMsg *pMsg) {

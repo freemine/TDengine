@@ -144,26 +144,37 @@ static void taosStopTcpThread(SThreadObj* pThreadObj) {
 
   // signal the thread to stop, try graceful method first,
   // and use pthread_cancel when failed
-  struct epoll_event event = { .events = EPOLLIN };
-  eventfd_t fd = eventfd(1, 0);
-  if (fd == -1) {
-    tError("%s, failed to create eventfd, will call pthread_cancel instead, which may result in data corruption: %s", pThreadObj->label, strerror(errno));
-    pthread_cancel(pThreadObj->thread);
-  } else if (epoll_ctl(pThreadObj->pollFd, EPOLL_CTL_ADD, fd, &event) < 0) {
-    tError("%s, failed to call epoll_ctl, will call pthread_cancel instead, which may result in data corruption: %s", pThreadObj->label, strerror(errno));
-    pthread_cancel(pThreadObj->thread);
+  struct epoll_event event = { 0 };
+  eventfd_t fd = -1;
+  if (taos_is_cancellable()) {
+    event.events = EPOLLIN;
+    fd = eventfd(1, 0);
+    if (fd == -1) {
+      tError("%s, failed to create eventfd, will call pthread_cancel instead, which may result in data corruption: %s", pThreadObj->label, strerror(errno));
+      pthread_cancel(pThreadObj->thread);
+    } else if (epoll_ctl(pThreadObj->pollFd, EPOLL_CTL_ADD, fd, &event) < 0) {
+      tError("%s, failed to call epoll_ctl, will call pthread_cancel instead, which may result in data corruption: %s", pThreadObj->label, strerror(errno));
+      pthread_cancel(pThreadObj->thread);
+    }
   }
 
-  pthread_join(pThreadObj->thread, NULL);
-  close(pThreadObj->pollFd);
-  if (fd != -1) {
-    close(fd);
+  if (taos_is_destroyable()) {
+    pthread_join(pThreadObj->thread, NULL);
+    close(pThreadObj->pollFd);
+    pThreadObj->pollFd = -1;
+    if (fd != -1) {
+      close(fd);
+    }
   }
 
   while (pThreadObj->pHead) {
     SFdObj *pFdObj = pThreadObj->pHead;
     pThreadObj->pHead = pFdObj->next;
     taosFreeFdObj(pFdObj);
+  }
+
+  if (taos_is_destroyable()) {
+    pThreadObj->pHead = NULL;
   }
 }
 
@@ -174,19 +185,28 @@ void taosCleanUpTcpServer(void *handle) {
 
   if (pServerObj == NULL) return;
 
-  shutdown(pServerObj->fd, SHUT_RD);
-  pthread_join(pServerObj->thread, NULL);
+  if (taos_is_cancellable()) {
+    shutdown(pServerObj->fd, SHUT_RD);
+  }
+  if (taos_is_destroyable()) {
+    pthread_join(pServerObj->thread, NULL);
+  }
 
   for (int i = 0; i < pServerObj->numOfThreads; ++i) {
     pThreadObj = pServerObj->pThreadObj + i;
     taosStopTcpThread(pThreadObj);
-    pthread_mutex_destroy(&(pThreadObj->mutex));
+    if (taos_is_destroyable()) {
+      pthread_mutex_destroy(&(pThreadObj->mutex));
+    }
   }
 
   tTrace("TCP:%s, TCP server is cleaned up", pServerObj->label);
 
-  tfree(pServerObj->pThreadObj);
-  tfree(pServerObj);
+  if (taos_is_destroyable()) {
+    tfree(pServerObj->pThreadObj);
+    pServerObj->pThreadObj = NULL;
+    tfree(pServerObj);
+  }
 }
 
 static void* taosAcceptTcpConnection(void *arg) {
@@ -289,7 +309,9 @@ void taosCleanUpTcpClient(void *chandle) {
   taosStopTcpThread(pThreadObj);
   tTrace (":%s, all connections are cleaned up", pThreadObj->label);
 
-  tfree(pThreadObj);
+  if (taos_is_destroyable()) {
+    tfree(pThreadObj);
+  }
 }
 
 void *taosOpenTcpClientConnection(void *shandle, void *thandle, uint32_t ip, uint16_t port) {
@@ -470,26 +492,32 @@ static void taosFreeFdObj(SFdObj *pFdObj) {
     return;
   }
 
-  pFdObj->signature = NULL;
-  epoll_ctl(pThreadObj->pollFd, EPOLL_CTL_DEL, pFdObj->fd, NULL);
-  taosCloseSocket(pFdObj->fd);
-
-  pThreadObj->numOfFds--;
-
-  if (pThreadObj->numOfFds < 0)
-    tError("%s %p, TCP thread:%d, number of FDs is negative!!!", 
-            pThreadObj->label, pFdObj->thandle, pThreadObj->threadId);
-
-  // remove from the FdObject list
-
-  if (pFdObj->prev) {
-    (pFdObj->prev)->next = pFdObj->next;
-  } else {
-    pThreadObj->pHead = pFdObj->next;
+  if (taos_is_destroyable()) {
+    pFdObj->signature = NULL;
   }
+  if (taos_is_cancellable()) {
+    epoll_ctl(pThreadObj->pollFd, EPOLL_CTL_DEL, pFdObj->fd, NULL);
+  }
+  if (taos_is_destroyable()) {
+    taosCloseSocket(pFdObj->fd);
+    pFdObj->fd = -1;
+    pThreadObj->numOfFds--;
 
-  if (pFdObj->next) {
-    (pFdObj->next)->prev = pFdObj->prev;
+    if (pThreadObj->numOfFds < 0)
+      tError("%s %p, TCP thread:%d, number of FDs is negative!!!", 
+              pThreadObj->label, pFdObj->thandle, pThreadObj->threadId);
+
+    // remove from the FdObject list
+
+    if (pFdObj->prev) {
+      (pFdObj->prev)->next = pFdObj->next;
+    } else {
+      pThreadObj->pHead = pFdObj->next;
+    }
+
+    if (pFdObj->next) {
+      (pFdObj->next)->prev = pFdObj->prev;
+    }
   }
 
   pthread_mutex_unlock(&pThreadObj->mutex);
@@ -497,5 +525,7 @@ static void taosFreeFdObj(SFdObj *pFdObj) {
   tTrace("%s %p, FD:%p is cleaned, numOfFds:%d", 
           pThreadObj->label, pFdObj->thandle, pFdObj, pThreadObj->numOfFds);
 
-  tfree(pFdObj);
+  if (taos_is_destroyable()) {
+    tfree(pFdObj);
+  }
 }

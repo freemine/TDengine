@@ -287,21 +287,44 @@ void rpcClose(void *param) {
   for (int i = 0; i < pRpc->sessions; ++i) {
     if (pRpc->connList && pRpc->connList[i].user[0]) {
       rpcCloseConn((void *)(pRpc->connList + i));
+      if (taos_is_destroyable()) {
+        pRpc->connList[i].user[0] = 0;
+      }
     }
   }
 
   (*taosCleanUpConn[pRpc->connType | RPC_CONN_TCP])(pRpc->tcphandle);
+  if (taos_is_destroyable()) {
+    pRpc->tcphandle = NULL;
+  }
   (*taosCleanUpConn[pRpc->connType])(pRpc->udphandle);
+  if (taos_is_destroyable()) {
+    pRpc->udphandle = NULL;
+  }
 
-  taosHashCleanup(pRpc->hash);
+  if (taos_is_destroyable()) {
+    taosHashCleanup(pRpc->hash);
+    pRpc->hash = NULL;
+  }
   taosTmrCleanUp(pRpc->tmrCtrl);
-  taosIdPoolCleanUp(pRpc->idPool);
+  if (taos_is_destroyable()) {
+    pRpc->tmrCtrl = NULL; // use another flag variable?
+  }
+  if (taos_is_destroyable()) {
+    taosIdPoolCleanUp(pRpc->idPool);
+    pRpc->idPool = NULL;
+  }
   rpcCloseConnCache(pRpc->pCache);
+  if (taos_is_destroyable()) {
+    pRpc->pCache = NULL;
+  }
 
-  tfree(pRpc->connList);
-  pthread_mutex_destroy(&pRpc->mutex);
-  tTrace("%s rpc is closed", pRpc->label);
-  tfree(pRpc);
+  if (taos_is_destroyable()) {
+    tfree(pRpc->connList); pRpc->connList = NULL;
+    pthread_mutex_destroy(&pRpc->mutex);
+    tTrace("%s rpc is closed", pRpc->label);
+    tfree(pRpc);
+  }
 }
 
 void *rpcMallocCont(int contLen) {
@@ -535,29 +558,41 @@ static void rpcCloseConn(void *thandle) {
     return;
   }
 
-  pConn->user[0] = 0;
+  if (taos_is_destroyable()) pConn->user[0] = 0;
   if (taosCloseConn[pConn->connType]) (*taosCloseConn[pConn->connType])(pConn->chandle);
 
   taosTmrStopA(&pConn->pTimer);
+  if (taos_is_destroyable()) {
+    pConn->pTimer = NULL;
+  }
   taosTmrStopA(&pConn->pIdleTimer);
+  if (taos_is_destroyable()) {
+    pConn->pIdleTimer = NULL;
+  }
 
   if ( pRpc->connType == TAOS_CONN_SERVER) {
     char hashstr[40] = {0};
     size_t size = sprintf(hashstr, "%x:%x:%x:%d", pConn->peerIp, pConn->linkUid, pConn->peerId, pConn->connType);
-    taosHashRemove(pRpc->hash, hashstr, size);
+    if (taos_is_destroyable()) {
+      taosHashRemove(pRpc->hash, hashstr, size);
+    }
   
     rpcFreeMsg(pConn->pRspMsg); // it may have a response msg saved, but not request msg
     pConn->pRspMsg = NULL;
     pConn->inType = 0;
     pConn->inTranId = 0;
   } else {
-    pConn->outType = 0;
-    pConn->outTranId = 0;
-    pConn->pReqMsg = NULL;
+    if (taos_is_destroyable()) {
+      pConn->outType = 0;
+      pConn->outTranId = 0;
+      pConn->pReqMsg = NULL;
+    }
   }
 
   taosFreeId(pRpc->idPool, pConn->sid);
-  pConn->pContext = NULL;
+  if (taos_is_destroyable()) {
+    pConn->pContext = NULL;
+  }
 
   tTrace("%s, rpc connection is closed", pConn->info);
 
@@ -912,7 +947,10 @@ static void *rpcProcessMsgFromPeer(SRecvInfo *pRecv) {
     }
   }
 
-  if (code) rpcFreeMsg(pRecv->msg); // parsing failed, msg shall be freed
+  if (code) {
+    rpcFreeMsg(pRecv->msg); // parsing failed, msg shall be freed
+    pRecv->msg = NULL;
+  }
   return pConn;
 }
 

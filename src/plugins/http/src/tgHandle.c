@@ -294,7 +294,9 @@ void tgInitHandle(HttpServer *pServer) {
 }
 
 void tgCleanupHandle() {
-  tgFreeSchemas();
+  if (taos_is_destroyable()) {
+    tgFreeSchemas();
+  }
 }
 
 bool tgGetUserFromUrl(HttpContext *pContext) {

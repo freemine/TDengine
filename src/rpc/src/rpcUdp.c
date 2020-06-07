@@ -134,20 +134,30 @@ void taosCleanUpUdpConnection(void *handle) {
 
   for (int i = 0; i < pSet->threads; ++i) {
     pConn = pSet->udpConn + i;
-    pConn->signature = NULL;
-    // shutdown to signal the thread to exit
-    shutdown(pConn->fd, SHUT_RD);
+    if (taos_is_cancellable()) {
+      pConn->signature = NULL;
+      // shutdown to signal the thread to exit
+      shutdown(pConn->fd, SHUT_RD);
+    }
   }
 
   for (int i = 0; i < pSet->threads; ++i) {
     pConn = pSet->udpConn + i;
-    pthread_join(pConn->thread, NULL);
-    free(pConn->buffer);
-    taosCloseSocket(pConn->fd);
+    if (taos_is_cancellable()) {
+      pthread_join(pConn->thread, NULL);
+    }
+    if (taos_is_destroyable()) {
+      free(pConn->buffer);
+      pConn->buffer = NULL;
+      taosCloseSocket(pConn->fd);
+      pConn->fd = -1;
+    }
     tTrace("chandle:%p is closed", pConn);
   }
 
-  tfree(pSet);
+  if (taos_is_destroyable()) {
+    tfree(pSet);
+  }
 }
 
 void *taosOpenUdpConnection(void *shandle, void *thandle, uint32_t ip, uint16_t port) {

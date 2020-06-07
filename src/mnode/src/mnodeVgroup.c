@@ -352,7 +352,10 @@ void mnodeDropVgroup(SVgObj *pVgroup, void *ahandle) {
 }
 
 void mnodeCleanupVgroups() {
-  sdbCloseTable(tsVgroupSdb);
+  if (taos_is_destroyable()) {
+    sdbCloseTable(tsVgroupSdb);
+    tsVgroupSdb = NULL;
+  }
 }
 
 int32_t mnodeGetVgroupMeta(STableMetaMsg *pMeta, SShowObj *pShow, void *pConn) {

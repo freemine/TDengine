@@ -141,6 +141,11 @@ void httpRemoveAllSessions(HttpServer *pServer) {
   }
 
   taosHashDestroyIter(pIter);
+
+  if (taos_is_destroyable()) {
+    taosHashCleanup(pServer->pSessionHash);
+    pServer->pSessionHash = NULL;
+  }
 }
 
 bool httpInitAllSessions(HttpServer *pServer) {

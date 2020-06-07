@@ -151,7 +151,10 @@ int32_t mnodeInitUsers() {
 }
 
 void mnodeCleanupUsers() {
-  sdbCloseTable(tsUserSdb);
+  if (taos_is_destroyable()) {
+    sdbCloseTable(tsUserSdb);
+    tsUserSdb = NULL;
+  }
 }
 
 SUserObj *mnodeGetUser(char *name) {

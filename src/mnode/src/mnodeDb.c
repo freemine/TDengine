@@ -443,7 +443,10 @@ void mnodeMoveVgroupToHead(SVgObj *pVgroup) {
 }
 
 void mnodeCleanupDbs() {
-  sdbCloseTable(tsDbSdb);
+  if (taos_is_destroyable()) {
+    sdbCloseTable(tsDbSdb);
+    tsDbSdb = NULL;
+  }
 }
 
 static int32_t mnodeGetDbMeta(STableMetaMsg *pMeta, SShowObj *pShow, void *pConn) {

@@ -157,17 +157,29 @@ void taos_init() { pthread_once(&tscinit, taos_init_imp); }
 
 void taos_cleanup() {
   if (tscCacheHandle != NULL) {
-    taosCacheCleanup(tscCacheHandle);
+    if (taos_is_destroyable()) {
+      taosCacheCleanup(tscCacheHandle);
+      tscCacheHandle = NULL;
+    }
   }
   
   if (tscQhandle != NULL) {
-    taosCleanUpScheduler(tscQhandle);
-    tscQhandle = NULL;
+    if (taos_is_destroyable()) {
+      taosCleanUpScheduler(tscQhandle);
+    }
+    if (taos_is_destroyable()) {
+      tscQhandle = NULL;
+    }
   }
   
+  if (tscTmr) {
+    taosTmrCleanUp(tscTmr);
+    if (taos_is_destroyable()) {
+      tscTmr = NULL;
+    }
+  }
+
   taosCloseLog();
-  
-  taosTmrCleanUp(tscTmr);
 }
 
 static int taos_options_imp(TSDB_OPTION option, const char *pStr) {

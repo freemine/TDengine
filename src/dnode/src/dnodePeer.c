@@ -29,6 +29,8 @@
 #include "dnodeVWrite.h"
 #include "dnodeMPeer.h"
 
+#include "tutil.h"
+
 extern void dnodeUpdateMnodeIpSetForPeer(SRpcIpSet *pIpSet);
 static void (*dnodeProcessReqMsgFp[TSDB_MSG_TYPE_MAX])(SRpcMsg *);
 static void dnodeProcessReqMsgFromDnode(SRpcMsg *pMsg, SRpcIpSet *);
@@ -77,7 +79,9 @@ int32_t dnodeInitServer() {
 void dnodeCleanupServer() {
   if (tsDnodeServerRpc) {
     rpcClose(tsDnodeServerRpc);
-    tsDnodeServerRpc = NULL;
+    if (taos_is_destroyable()) {
+      tsDnodeServerRpc = NULL;
+    }
     dPrint("inter-dnodes RPC server is closed");
   }
 }
@@ -138,7 +142,9 @@ int32_t dnodeInitClient() {
 void dnodeCleanupClient() {
   if (tsDnodeClientRpc) {
     rpcClose(tsDnodeClientRpc);
-    tsDnodeClientRpc = NULL;
+    if (taos_is_destroyable()) {
+      tsDnodeClientRpc = NULL;
+    }
     dPrint("inter-dnodes rpc client is closed");
   }
 }

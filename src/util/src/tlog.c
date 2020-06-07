@@ -46,6 +46,7 @@ typedef struct {
   int32_t         fd;
   int32_t         stop;
   pthread_t       asyncThread;
+  int             asyncThread_valid;
   pthread_mutex_t buffMutex;
   tsem_t          buffNotEmpty;
 } SLogBuff;
@@ -74,6 +75,7 @@ static int32_t   taosPushLogBuffer(SLogBuff *tLogBuff, char *msg, int32_t msgLen
 static SLogBuff *taosLogBuffNew(int32_t bufSize);
 static void      taosCloseLogByFd(int32_t oldFd);
 static int32_t   taosOpenLogFile(char *fn, int32_t maxLines, int32_t maxFileNum);
+static void taosLogBuffDestroy(SLogBuff *tLogBuff);
 
 static int32_t taosStartLog() {
   pthread_attr_t threadAttr;
@@ -81,6 +83,7 @@ static int32_t taosStartLog() {
   if (pthread_create(&(tsLogObj.logHandle->asyncThread), &threadAttr, taosAsyncOutputLog, tsLogObj.logHandle) != 0) {
     return -1;
   }
+  tsLogObj.logHandle->asyncThread_valid = 1;
   pthread_attr_destroy(&threadAttr);
   return 0;
 }
@@ -101,14 +104,24 @@ static void taosStopLog() {
 
 void taosCloseLog() {
   taosStopLog();
-  tsem_post(&(tsLogObj.logHandle->buffNotEmpty));
+  if (!tsLogObj.logHandle) return;
+  if (taos_is_cancellable()) {
+    tsem_post(&(tsLogObj.logHandle->buffNotEmpty));
+  }
   if (taosCheckPthreadValid(tsLogObj.logHandle->asyncThread)) {
-    pthread_join(tsLogObj.logHandle->asyncThread, NULL);
+    if (taos_is_cancellable() && tsLogObj.logHandle->asyncThread_valid) {
+      pthread_join(tsLogObj.logHandle->asyncThread, NULL);
+      tsLogObj.logHandle->asyncThread_valid = 0;
+    }
   }
   // In case that other threads still use log resources causing invalid write in valgrind
   // we comment two lines below.
   // taosLogBuffDestroy(tsLogObj.logHandle);
   // taosCloseLog();
+  if (taos_is_destroyable()) {
+    taosLogBuffDestroy(tsLogObj.logHandle);
+    tsLogObj.logHandle = NULL;
+  }
 }
 
 static bool taosLockFile(int32_t fd) {
@@ -466,14 +479,14 @@ _err:
   return NULL;
 }
 
-#if 0
 static void taosLogBuffDestroy(SLogBuff *tLogBuff) {
-  tsem_destroy(&(tLogBuff->buffNotEmpty));
-  pthread_mutex_destroy(&(tLogBuff->buffMutex));
-  free(tLogBuff->buffer);
-  tfree(tLogBuff);
+  if (taos_is_destroyable()) {
+    tsem_destroy(&(tLogBuff->buffNotEmpty));
+    pthread_mutex_destroy(&(tLogBuff->buffMutex));
+    free(tLogBuff->buffer); tLogBuff->buffer = NULL;
+    tfree(tLogBuff);
+  }
 }
-#endif
 
 static int32_t taosPushLogBuffer(SLogBuff *tLogBuff, char *msg, int32_t msgLen) {
   int32_t start = 0;

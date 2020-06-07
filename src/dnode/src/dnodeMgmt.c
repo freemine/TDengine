@@ -49,6 +49,7 @@ static SDMDnodeCfg   tsDnodeCfg = {0};
 static taos_qset     tsMgmtQset = NULL;
 static taos_queue    tsMgmtQueue = NULL;
 static pthread_t     tsQthread;
+static volatile int  tsQthread_valid = 0;
 
 static void   dnodeUpdateMnodeInfos(SDMMnodeInfos *pMnodes);
 static bool   dnodeReadMnodeInfos();
@@ -125,6 +126,7 @@ int32_t dnodeInitMgmt() {
     dnodeCleanupMgmt();
     return -1; 
   }
+  tsQthread_valid = 1;
 
   code = dnodeOpenVnodes();
   if (code != TSDB_CODE_SUCCESS) {
@@ -149,23 +151,46 @@ int32_t dnodeInitMgmt() {
 void dnodeCleanupMgmt() {
   if (tsStatusTimer != NULL) {
     taosTmrStopA(&tsStatusTimer);
-    tsStatusTimer = NULL;
+    if (taos_is_destroyable()) {
+      tsStatusTimer = NULL;
+    }
   }
 
   if (tsDnodeTmr != NULL) {
     taosTmrCleanUp(tsDnodeTmr);
-    tsDnodeTmr = NULL;
+    if (taos_is_destroyable()) {
+      tsDnodeTmr = NULL;
+    }
   }
 
-  dnodeCloseVnodes();
+  if (taos_is_destroyable()) {
+    dnodeCloseVnodes();
+  }
 
-  if (tsMgmtQset) taosQsetThreadResume(tsMgmtQset);
-  if (tsQthread) pthread_join(tsQthread, NULL);
+  if (tsMgmtQset) {
+    if (taos_is_cancellable()) {
+      taosQsetThreadResume(tsMgmtQset);
+    }
+  }
+  if (tsQthread_valid) {
+    if (taos_is_cancellable()) {
+      pthread_join(tsQthread, NULL);
+      tsQthread_valid = 0;
+    }
+  }
 
-  if (tsMgmtQueue) taosCloseQueue(tsMgmtQueue);
-  if (tsMgmtQset) taosCloseQset(tsMgmtQset);
-  tsMgmtQset = NULL;
-  tsMgmtQueue = NULL;
+  if (tsMgmtQueue) {
+    if (taos_is_destroyable()) {
+      taosCloseQueue(tsMgmtQueue);
+      tsMgmtQueue = NULL;
+    }
+  }
+  if (tsMgmtQset) {
+    if (taos_is_destroyable()) {
+      taosCloseQset(tsMgmtQset);
+      tsMgmtQset = NULL;
+    }
+  }
 
 }
 

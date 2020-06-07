@@ -131,12 +131,12 @@ int32_t dnodeInitSystem() {
 }
 
 void dnodeCleanUpSystem() {
-  if (dnodeGetRunStatus() != TSDB_DNODE_RUN_STATUS_STOPPED) {
+  // if (dnodeGetRunStatus() != TSDB_DNODE_RUN_STATUS_STOPPED) {
     dnodeSetRunStatus(TSDB_DNODE_RUN_STATUS_STOPPED);
     dnodeCleanupComponents(sizeof(tsDnodeComponents) / sizeof(tsDnodeComponents[0]) - 1);
     taos_cleanup();
     taosCloseLog();
-  }
+  // }
 }
 
 SDnodeRunStatus dnodeGetRunStatus() {

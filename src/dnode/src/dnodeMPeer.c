@@ -60,18 +60,26 @@ int32_t dnodeInitMnodePeer() {
 }
 
 void dnodeCleanupMnodePeer() {
-  for (int32_t i = 0; i < tsMPeerPool.num; ++i) {
-    SMPeerWorker *pWorker = tsMPeerPool.peerWorker + i;
-    if (pWorker->thread) {
-      taosQsetThreadResume(tsMPeerQset);
+  if (taos_is_cancellable() && tsMPeerPool.peerWorker) {
+    for (int32_t i = 0; i < tsMPeerPool.num; ++i) {
+      SMPeerWorker *pWorker = tsMPeerPool.peerWorker + i;
+      if (pWorker->thread) {
+          taosQsetThreadResume(tsMPeerQset);
+      }
+    }
+    for (int32_t i = 0; i < tsMPeerPool.num; ++i) {
+      SMPeerWorker *pWorker = tsMPeerPool.peerWorker + i;
+      if (pWorker->thread) {
+        pthread_join(pWorker->thread, NULL);
+      }
     }
   }
 
-  for (int32_t i = 0; i < tsMPeerPool.num; ++i) {
-    SMPeerWorker *pWorker = tsMPeerPool.peerWorker + i;
-    if (pWorker->thread) {
-      pthread_join(pWorker->thread, NULL);
-    }
+  if (taos_is_destroyable()) {
+    free(tsMPeerPool.peerWorker);
+    tsMPeerPool.peerWorker = NULL;
+    taosCloseQset(tsMPeerQset);
+    tsMPeerQset = NULL;
   }
 
   dPrint("dnode mpeer is closed");
@@ -104,8 +112,10 @@ int32_t dnodeAllocateMnodePqueue() {
 }
 
 void dnodeFreeMnodePqueue() {
-  taosCloseQueue(tsMPeerQueue);
-  tsMPeerQueue = NULL;
+  if (taos_is_destroyable()) {
+    taosCloseQueue(tsMPeerQueue);
+    tsMPeerQueue = NULL;
+  }
 }
 
 void dnodeDispatchToMnodePeerQueue(SRpcMsg *pMsg) {

@@ -107,7 +107,9 @@ int httpStartSystem() {
 
 void httpStopSystem() {
   if (httpServer != NULL) {
-    httpServer->online = false;
+    if (taos_is_cancellable()) {
+      httpServer->online = false;
+    }
   }
   tgCleanupHandle();
 }
@@ -123,30 +125,44 @@ void httpCleanUpSystem() {
 
   if (httpServer->expireTimer != NULL) {
     taosTmrStopA(&(httpServer->expireTimer));
+    if (taos_is_destroyable()) {
+      httpServer->expireTimer = NULL;
+    }
   }
 
   if (httpServer->timerHandle != NULL) {
     taosTmrCleanUp(httpServer->timerHandle);
-    httpServer->timerHandle = NULL;
+    if (taos_is_destroyable()) {
+      httpServer->timerHandle = NULL;
+    }
   }
 
   if (httpServer->pThreads != NULL) {
     httpCleanUpConnect(httpServer);
-    httpServer->pThreads = NULL;
+    if (taos_is_destroyable()) {
+      httpServer->pThreads = NULL;
+    }
   }
   
 
-#if 0
-  httpRemoveAllSessions(httpServer);
-
-  if (httpServer->pContextPool != NULL) {
-    taosMemPoolCleanUp(httpServer->pContextPool);
-    httpServer->pContextPool = NULL;
+#if 1
+  if (taos_is_destroyable()) {
+    httpRemoveAllSessions(httpServer);
   }
 
-  pthread_mutex_destroy(&httpServer->serverMutex);
+  if (httpServer->pContextPool != NULL) {
+    if (taos_is_destroyable()) {
+      taosMemPoolCleanUp(httpServer->pContextPool);
+      httpServer->pContextPool = NULL;
+    }
+  }
 
-  tfree(httpServer);
+  if (taos_is_destroyable()) {
+    pthread_mutex_destroy(&httpServer->serverMutex);
+
+    tfree(httpServer);
+    httpServer = NULL;
+  }
 #endif
 }
 

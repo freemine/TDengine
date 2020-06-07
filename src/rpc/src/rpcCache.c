@@ -99,19 +99,33 @@ void rpcCloseConnCache(void *handle) {
   pthread_mutex_lock(&pCache->mutex);
 
   taosTmrStopA(&(pCache->pTimer));
+  if (taos_is_destroyable()) {
+    pCache->pTimer = NULL;
+  }
 
-  if (pCache->connHashMemPool) taosMemPoolCleanUp(pCache->connHashMemPool);
+  if (pCache->connHashMemPool) {
+    if (taos_is_destroyable()) {
+      taosMemPoolCleanUp(pCache->connHashMemPool);
+      pCache->connHashMemPool = NULL;
+    }
+  }
 
-  tfree(pCache->connHashList);
-  tfree(pCache->count);
-  tfree(pCache->lockedBy);
+  if (taos_is_destroyable()) {
+    tfree(pCache->connHashList); pCache->connHashList = NULL;
+    tfree(pCache->count);        pCache->count        = NULL;
+    tfree(pCache->lockedBy);     pCache->lockedBy     = NULL;
+  }
 
   pthread_mutex_unlock(&pCache->mutex);
 
-  pthread_mutex_destroy(&pCache->mutex);
+  if (taos_is_destroyable()) {
+    pthread_mutex_destroy(&pCache->mutex);
+  }
 
-  memset(pCache, 0, sizeof(SConnCache));
-  free(pCache);
+  if (taos_is_destroyable()) {
+    memset(pCache, 0, sizeof(SConnCache));
+    free(pCache);
+  }
 }
 
 void rpcAddConnIntoCache(void *handle, void *data, char *fqdn, uint16_t port, int8_t connType) {

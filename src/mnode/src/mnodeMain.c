@@ -35,6 +35,8 @@
 #include "mnodeShow.h"
 #include "mnodeProfile.h"
 
+#include "tutil.h"
+
 typedef struct {
   const char *const name;
   int               (*init)();
@@ -147,7 +149,9 @@ static void mnodeInitTimer() {
 static void mnodeCleanupTimer() {
   if (tsMnodeTmr != NULL) {
     taosTmrCleanUp(tsMnodeTmr);
-    tsMnodeTmr = NULL;
+    if (taos_is_destroyable()) {
+      tsMnodeTmr = NULL;
+    }
   }
 }
 

@@ -72,8 +72,10 @@ int32_t mnodeInitShow() {
 void mnodeCleanUpShow() {
   if (tsMnodeShowCache != NULL) {
     mPrint("show cache is cleanup");
-    taosCacheCleanup(tsMnodeShowCache);
-    tsMnodeShowCache = NULL;
+    if (taos_is_destroyable()) {
+      taosCacheCleanup(tsMnodeShowCache);
+      tsMnodeShowCache = NULL;
+    }
   }
 }
 

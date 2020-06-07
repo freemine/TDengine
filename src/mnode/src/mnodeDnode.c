@@ -171,7 +171,10 @@ int32_t mnodeInitDnodes() {
 }
 
 void mnodeCleanupDnodes() {
-  sdbCloseTable(tsDnodeSdb);
+  if (taos_is_destroyable()) {
+    sdbCloseTable(tsDnodeSdb);
+    tsDnodeSdb = NULL;
+  }
 }
 
 void *mnodeGetNextDnode(void *pIter, SDnodeObj **pDnode) { 

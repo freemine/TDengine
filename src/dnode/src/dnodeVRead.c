@@ -71,22 +71,30 @@ int32_t dnodeInitVnodeRead() {
 }
 
 void dnodeCleanupVnodeRead() {
-  for (int i=0; i < readPool.max; ++i) {
-    SReadWorker *pWorker = readPool.readWorker + i;
-    if (pWorker->thread) {
-      taosQsetThreadResume(readQset);
+  if (taos_is_cancellable() && readPool.readWorker) {
+    for (int i=0; i < readPool.max; ++i) {
+      SReadWorker *pWorker = readPool.readWorker + i;
+      if (pWorker->thread) {
+        taosQsetThreadResume(readQset);
+      }
+    }
+
+    for (int i=0; i < readPool.max; ++i) {
+      SReadWorker *pWorker = readPool.readWorker + i;
+      if (pWorker->thread) {
+        pthread_join(pWorker->thread, NULL);
+      }
     }
   }
 
-  for (int i=0; i < readPool.max; ++i) {
-    SReadWorker *pWorker = readPool.readWorker + i;
-    if (pWorker->thread) {
-      pthread_join(pWorker->thread, NULL);
-    }
+  if (taos_is_destroyable()) {
+    free(readPool.readWorker);
+    readPool.readWorker = NULL;
   }
-
-  free(readPool.readWorker);
   taosCloseQset(readQset);
+  if (taos_is_destroyable()) {
+    readQset = NULL;
+  }
 
   dPrint("dnode read is closed");
 }

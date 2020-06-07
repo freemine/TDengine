@@ -214,6 +214,13 @@ ssize_t taos_getline(char **lineptr, size_t *n, FILE *stream, const char *file, 
 
 #endif // TAOS_MEM_CHECK
 
+void taos_atexit(void (*routine)());
+// in the state of cancelling, routine shall send cancelling `signal` and wait it's own thread to exit by calling pthread_join
+int  taos_is_cancellable(void);
+// in the state of destroying, routine shall destroy/release it's own resources
+int  taos_is_destroyable(void);
+
+
 #ifdef __cplusplus
 }
 #endif

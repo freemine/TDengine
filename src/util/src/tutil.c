@@ -719,3 +719,77 @@ void taosRemoveDir(char *rootDir) {
 
   uPrint("dir:%s is removed", rootDir);
 }
+
+typedef struct taos_exit_list_node_s           taos_exit_list_node_t;
+struct taos_exit_list_node_s {
+  taos_exit_list_node_t               *next;
+  void (*routine)(void);
+};
+static taos_exit_list_node_t          *taos_exit_list            = NULL;
+static pthread_mutex_t                 taos_exit_locker          = PTHREAD_MUTEX_INITIALIZER;
+static volatile int                    taos_exit_cancelling      = 0;
+static volatile int                    taos_exit_destroying      = 0;
+static pthread_once_t                  taos_exit_once;
+
+static void taos_exit_list_push_front(void (*routine)()) {
+  taos_exit_list_node_t *node = (taos_exit_list_node_t*)calloc(1, sizeof(*node));
+  assert(node);  // calling from outside main?
+  node->routine  = routine;
+  node->next     = taos_exit_list;
+  taos_exit_list = node;
+}
+
+static void taos_exit_routine() {
+  pthread_mutex_lock(&taos_exit_locker);
+  assert(taos_exit_cancelling==0);
+  taos_exit_cancelling             = 1;
+  taos_exit_list_node_t *node;
+  node = taos_exit_list;
+  while (node) {
+    pthread_mutex_unlock(&taos_exit_locker);
+    node->routine();
+    pthread_mutex_lock(&taos_exit_locker);
+    node = node->next;
+  }
+  taos_exit_destroying             = 1;
+  node = taos_exit_list;
+  while (node) {
+    pthread_mutex_unlock(&taos_exit_locker);
+    node->routine();
+    pthread_mutex_lock(&taos_exit_locker);
+    taos_exit_list_node_t *next = node->next;
+    free(node);
+    node = next;
+  }
+  pthread_mutex_unlock(&taos_exit_locker);
+}
+
+static void taos_set_atexit() {
+  atexit(taos_exit_routine);
+}
+
+void taos_atexit(void (*routine)()) {
+  pthread_once(&taos_exit_once, taos_set_atexit);
+  pthread_mutex_lock(&taos_exit_locker);
+  assert(taos_exit_cancelling==0);
+  assert(taos_exit_destroying==0);
+  taos_exit_list_push_front(routine);
+  pthread_mutex_unlock(&taos_exit_locker);
+}
+
+int taos_is_cancellable(void) {
+  int cancellable;
+  pthread_mutex_lock(&taos_exit_locker);
+  cancellable = taos_exit_cancelling || !taos_exit_destroying;
+  pthread_mutex_unlock(&taos_exit_locker);
+  return cancellable;
+}
+
+int taos_is_destroyable(void) {
+  int destroyable;
+  pthread_mutex_lock(&taos_exit_locker);
+  destroyable = taos_exit_destroying || !taos_exit_cancelling;
+  pthread_mutex_unlock(&taos_exit_locker);
+  return destroyable;
+}
+

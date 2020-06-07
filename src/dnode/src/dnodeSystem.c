@@ -96,6 +96,8 @@ int32_t main(int32_t argc, char *argv[]) {
     exit(EXIT_FAILURE);
   }
 
+  taos_atexit(dnodeCleanUpSystem);
+
   syslog(LOG_INFO, "Started TDengine service successfully.");
 
   for (int res = sem_wait(&exitSem); res != 0; res = sem_wait(&exitSem)) {

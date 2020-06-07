@@ -334,22 +334,26 @@ int32_t sdbInit() {
 }
 
 void sdbCleanUp() {
-  if (tsSdbObj.status != SDB_STATUS_SERVING) return;
+  // if (tsSdbObj.status != SDB_STATUS_SERVING) return;
 
-  tsSdbObj.status = SDB_STATUS_CLOSING;
-  
-  if (tsSdbObj.sync) {
-    syncStop(tsSdbObj.sync);
-    tsSdbObj.sync = NULL;
-  }
-
-  if (tsSdbObj.wal) {
-    walClose(tsSdbObj.wal);
-    tsSdbObj.wal = NULL;
+  if (taos_is_cancellable()) {
+    tsSdbObj.status = SDB_STATUS_CLOSING;
   }
   
-  sem_destroy(&tsSdbObj.sem);
-  pthread_mutex_destroy(&tsSdbObj.mutex);
+  if (taos_is_destroyable()) {
+    if (tsSdbObj.sync) {
+      syncStop(tsSdbObj.sync);
+      tsSdbObj.sync = NULL;
+    }
+
+    if (tsSdbObj.wal) {
+      walClose(tsSdbObj.wal);
+      tsSdbObj.wal = NULL;
+    }
+    
+    sem_destroy(&tsSdbObj.sem);
+    pthread_mutex_destroy(&tsSdbObj.mutex);
+  }
 }
 
 void sdbIncRef(void *handle, void *pObj) {

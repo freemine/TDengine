@@ -29,6 +29,8 @@
 #include "dnodeMWrite.h"
 #include "dnodeShell.h"
 
+#include "tutil.h"
+
 static void  (*dnodeProcessShellMsgFp[TSDB_MSG_TYPE_MAX])(SRpcMsg *);
 static void    dnodeProcessMsgFromShell(SRpcMsg *pMsg, SRpcIpSet *);
 static int     dnodeRetrieveUserAuthInfo(char *user, char *spi, char *encrypt, char *secret, char *ckey);
@@ -103,7 +105,9 @@ int32_t dnodeInitShell() {
 void dnodeCleanupShell() {
   if (tsDnodeShellRpc) {
     rpcClose(tsDnodeShellRpc);
-    tsDnodeShellRpc = NULL;
+    if (taos_is_destroyable()) {
+      tsDnodeShellRpc = NULL;
+    }
   }
 }
 

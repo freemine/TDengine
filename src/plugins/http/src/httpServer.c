@@ -260,27 +260,32 @@ void httpCloseContextByServerForExpired(void *param, void *tmrId) {
 
 
 static void httpStopThread(HttpThread* pThread) {
-  pThread->stop = true;
+  if (taos_is_cancellable()) {
+    pThread->stop = true;
 
-  // signal the thread to stop, try graceful method first,
-  // and use pthread_cancel when failed
-  struct epoll_event event = { .events = EPOLLIN };
-  eventfd_t fd = eventfd(1, 0);
-  if (fd == -1) {
-    httpError("%s, failed to create eventfd, will call pthread_cancel instead, which may result in data corruption: %s", pThread->label, strerror(errno));
-    pthread_cancel(pThread->thread);
-  } else if (epoll_ctl(pThread->pollFd, EPOLL_CTL_ADD, fd, &event) < 0) {
-    httpError("%s, failed to call epoll_ctl, will call pthread_cancel instead, which may result in data corruption: %s", pThread->label, strerror(errno));
-    pthread_cancel(pThread->thread);
+    // signal the thread to stop, try graceful method first,
+    // and use pthread_cancel when failed
+    struct epoll_event event = { .events = EPOLLIN };
+    eventfd_t fd = eventfd(1, 0);
+    if (fd == -1) {
+      httpError("%s, failed to create eventfd, will call pthread_cancel instead, which may result in data corruption: %s", pThread->label, strerror(errno));
+      pthread_cancel(pThread->thread);
+    } else if (epoll_ctl(pThread->pollFd, EPOLL_CTL_ADD, fd, &event) < 0) {
+      httpError("%s, failed to call epoll_ctl, will call pthread_cancel instead, which may result in data corruption: %s", pThread->label, strerror(errno));
+      pthread_cancel(pThread->thread);
+    }
+
+    pthread_join(pThread->thread, NULL);
+    if (fd != -1) {
+      close(fd);
+    }
   }
 
-  pthread_join(pThread->thread, NULL);
-  if (fd != -1) {
-    close(fd);
+  if (taos_is_destroyable()) {
+    close(pThread->pollFd);
+    pThread->pollFd = -1;
+    pthread_mutex_destroy(&(pThread->threadMutex));
   }
-
-  close(pThread->pollFd);
-  pthread_mutex_destroy(&(pThread->threadMutex));
 
   //while (pThread->pHead) {
   //  httpCleanUpContext(pThread->pHead, 0);
@@ -291,8 +296,12 @@ static void httpStopThread(HttpThread* pThread) {
 void httpCleanUpConnect(HttpServer *pServer) {
   if (pServer == NULL) return;
 
-  shutdown(pServer->fd, SHUT_RD);
-  pthread_join(pServer->thread, NULL);
+  if (taos_is_cancellable()) {
+    shutdown(pServer->fd, SHUT_RD);
+  }
+  if (taos_is_destroyable()) {
+    pthread_join(pServer->thread, NULL);
+  }
 
   for (int i = 0; i < pServer->numOfThreads; ++i) {
     HttpThread* pThread = pServer->pThreads + i;
@@ -301,7 +310,10 @@ void httpCleanUpConnect(HttpServer *pServer) {
     }
   }
 
-  tfree(pServer->pThreads);
+  if (taos_is_destroyable()) {
+    tfree(pServer->pThreads);
+    pServer->pThreads = NULL;
+  }
   httpTrace("http server:%s is cleaned up", pServer->label);
 }
 
