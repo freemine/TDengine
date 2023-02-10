@@ -1,4 +1,6 @@
-set(ex_install_prefix ${CMAKE_BINARY_DIR}/../third_party.install)
+set(ex_root ${CMAKE_BINARY_DIR}/../third_party)
+set(ex_prefix ${ex_root}/source)
+set(ex_install_prefix ${ex_root}/install)
 
 include(ExternalProject)
 
@@ -6,6 +8,7 @@ ExternalProject_Add(ex_lz4
     GIT_REPOSITORY https://github.com/taosdata-contrib/lz4.git
     GIT_TAG v1.9.3
     GIT_SHALLOW TRUE
+    PREFIX ${ex_prefix}/lz4
     # CMakeLists.txt not in root directory
     SOURCE_SUBDIR build/cmake
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:STRING=${ex_install_prefix}/lz4
@@ -28,6 +31,7 @@ ExternalProject_Add(ex_zlib
     GIT_REPOSITORY https://github.com/taosdata-contrib/zlib.git
     GIT_TAG v1.2.11
     GIT_SHALLOW TRUE
+    PREFIX ${ex_prefix}/zlib
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:STRING=${ex_install_prefix}/zlib
     CMAKE_ARGS -DCMAKE_C_FLAGS:STRING=-fPIC
     CMAKE_ARGS --target zlibstatic
@@ -52,6 +56,7 @@ ExternalProject_Add(ex_cjson
     GIT_REPOSITORY https://github.com/taosdata-contrib/cJSON.git
     GIT_TAG v1.7.15
     GIT_SHALLOW TRUE
+    PREFIX ${ex_prefix}/cjson
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:STRING=${ex_install_prefix}/cjson
     CMAKE_ARGS -DBUILD_SHARED_LIBS:BOOL=OFF
     INSTALL_COMMAND ${CMAKE_COMMAND} --install .
