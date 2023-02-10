@@ -39,8 +39,9 @@ endif()
 target_link_libraries(
     os
     PUBLIC pthread
-    PUBLIC zlibstatic
 )
+depend_zlib(os)
+
 if(TD_WINDOWS)
     target_link_libraries(
         os PUBLIC ws2_32 iconv msvcregex wcwidth winmm crashdump dbghelp

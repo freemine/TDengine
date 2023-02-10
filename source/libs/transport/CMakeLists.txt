@@ -8,12 +8,14 @@ target_include_directories(
 
 target_link_libraries(
     transport
-    PUBLIC lz4_static
     PUBLIC os
     PUBLIC util
     PUBLIC common
-    PUBLIC zlibstatic
 )
+
+depend_lz4(transport)
+depend_zlib(transport)
+
 if (${BUILD_WITH_UV_TRANS}) 
 if (${BUILD_WITH_UV})
   target_link_libraries(

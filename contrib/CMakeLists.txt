@@ -1,3 +1,5 @@
+include(ExternalProject)
+
 # ================================================================================================
 # Download
 # ================================================================================================
@@ -62,15 +64,6 @@ if(${BUILD_TEST})
     cat("${TD_SUPPORT_DIR}/gtest_CMakeLists.txt.in" ${CONTRIB_TMP_FILE})
     cat("${TD_SUPPORT_DIR}/stub_CMakeLists.txt.in" ${CONTRIB_TMP_FILE})
 endif(${BUILD_TEST})
-
-# lz4
-cat("${TD_SUPPORT_DIR}/lz4_CMakeLists.txt.in" ${CONTRIB_TMP_FILE})
-
-# zlib
-cat("${TD_SUPPORT_DIR}/zlib_CMakeLists.txt.in" ${CONTRIB_TMP_FILE})
-
-# cJson
-cat("${TD_SUPPORT_DIR}/cjson_CMakeLists.txt.in" ${CONTRIB_TMP_FILE})
 
 # leveldb
 if(${BUILD_WITH_LEVELDB})
@@ -173,42 +166,6 @@ if(${BUILD_TEST})
     
     
 endif(${BUILD_TEST})
-
-# cJson
-# see https://stackoverflow.com/questions/37582508/silence-cmp0048-warnings-in-vendored-projects
-set(CMAKE_PROJECT_INCLUDE_BEFORE "${TD_SUPPORT_DIR}/EnableCMP0048.txt.in")
-option(ENABLE_CJSON_TEST "Enable building cJSON test" OFF)
-option(CJSON_OVERRIDE_BUILD_SHARED_LIBS "Override BUILD_SHARED_LIBS with CJSON_BUILD_SHARED_LIBS" ON)
-option(CJSON_BUILD_SHARED_LIBS "Overrides BUILD_SHARED_LIBS if CJSON_OVERRIDE_BUILD_SHARED_LIBS is enabled" OFF)
-add_subdirectory(cJson EXCLUDE_FROM_ALL)
-target_include_directories(
-    cjson
-    # see https://stackoverflow.com/questions/25676277/cmake-target-include-directories-prints-an-error-when-i-try-to-add-the-source
-    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/cJson>
-)
-unset(CMAKE_PROJECT_INCLUDE_BEFORE)
-
-# lz4
-add_subdirectory(lz4/build/cmake EXCLUDE_FROM_ALL)
-target_include_directories(
-    lz4_static
-    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/lz4/lib
-)
-
-# zlib
-set(CMAKE_PROJECT_INCLUDE_BEFORE "${TD_SUPPORT_DIR}/EnableCMP0048.txt.in")
-add_subdirectory(zlib EXCLUDE_FROM_ALL)
-target_include_directories(
-    zlibstatic
-    PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/zlib
-    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/zlib
-)
-target_include_directories(
-    zlib
-    PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/zlib
-    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/zlib
-)
-unset(CMAKE_PROJECT_INCLUDE_BEFORE)
 
 # leveldb
 if(${BUILD_WITH_LEVELDB})

@@ -14,9 +14,11 @@ target_include_directories(
 target_link_libraries(
     util
     PUBLIC os
-    PUBLIC lz4_static
-    PUBLIC api cjson
+    PUBLIC api
 )
+
+depend_lz4(util)
+depend_cjson(util)
 
 if(${BUILD_TEST})
     ADD_SUBDIRECTORY(test)

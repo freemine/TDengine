@@ -1,0 +1,72 @@
+set(ex_install_prefix ${CMAKE_BINARY_DIR}/../third_party.install)
+
+include(ExternalProject)
+
+ExternalProject_Add(ex_lz4
+    GIT_REPOSITORY https://github.com/taosdata-contrib/lz4.git
+    GIT_TAG v1.9.3
+    GIT_SHALLOW TRUE
+    # CMakeLists.txt not in root directory
+    SOURCE_SUBDIR build/cmake
+    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:STRING=${ex_install_prefix}/lz4
+    CMAKE_ARGS -DBUILD_SHARED_LIBS:BOOL=OFF -DBUILD_STATIC_LIBS:BOOL=ON
+    INSTALL_COMMAND ${CMAKE_COMMAND} --install .
+)
+
+set(ex_lz4_INC_DIR ${ex_install_prefix}/lz4/include)
+set(ex_lz4_LIB_DIR ${ex_install_prefix}/lz4/lib)
+
+macro(depend_lz4 target)
+  add_dependencies(${target} ex_lz4)
+  target_include_directories(${target} PRIVATE ${ex_lz4_INC_DIR})
+  target_link_directories(${target} INTERFACE ${ex_lz4_LIB_DIR})
+  target_link_libraries(${target} INTERFACE lz4)
+endmacro()
+
+
+ExternalProject_Add(ex_zlib
+    GIT_REPOSITORY https://github.com/taosdata-contrib/zlib.git
+    GIT_TAG v1.2.11
+    GIT_SHALLOW TRUE
+    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:STRING=${ex_install_prefix}/zlib
+    CMAKE_ARGS -DCMAKE_C_FLAGS:STRING=-fPIC
+    CMAKE_ARGS --target zlibstatic
+    INSTALL_COMMAND ${CMAKE_COMMAND} --install .
+    COMMAND ${CMAKE_COMMAND} -E remove ${ex_install_prefix}/zlib/lib/libz.so
+    COMMAND ${CMAKE_COMMAND} -E remove ${ex_install_prefix}/zlib/lib/libz.so.1
+    COMMAND ${CMAKE_COMMAND} -E remove ${ex_install_prefix}/zlib/lib/libz.so.1.2.11
+)
+
+set(ex_zlib_INC_DIR ${ex_install_prefix}/zlib/include)
+set(ex_zlib_LIB_DIR ${ex_install_prefix}/zlib/lib)
+
+macro(depend_zlib target)
+  add_dependencies(${target} ex_zlib)
+  target_include_directories(${target} PRIVATE ${ex_zlib_INC_DIR})
+  target_link_directories(${target} INTERFACE ${ex_zlib_LIB_DIR})
+  target_link_libraries(${target} PRIVATE z)
+endmacro()
+
+# cjson
+ExternalProject_Add(ex_cjson
+    GIT_REPOSITORY https://github.com/taosdata-contrib/cJSON.git
+    GIT_TAG v1.7.15
+    GIT_SHALLOW TRUE
+    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:STRING=${ex_install_prefix}/cjson
+    CMAKE_ARGS -DBUILD_SHARED_LIBS:BOOL=OFF
+    INSTALL_COMMAND ${CMAKE_COMMAND} --install .
+    )
+
+set(ex_cjson_INC_DIR ${ex_install_prefix}/cjson/include)
+set(ex_cjson_LIB_DIR ${ex_install_prefix}/cjson/lib)
+
+macro(depend_cjson target)
+  add_dependencies(${target} ex_cjson)
+
+  # no, don't do this
+  target_include_directories(${target} PUBLIC ${ex_cjson_INC_DIR}/cjson)
+
+  target_link_directories(${target} INTERFACE ${ex_cjson_LIB_DIR})
+  target_link_libraries(${target} PRIVATE cjson)
+endmacro()
+
