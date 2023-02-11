@@ -1,0 +1,89 @@
+set(ex_root ${CMAKE_BINARY_DIR}/../third_party)
+set(ex_prefix ${ex_root}/source)
+set(ex_install_prefix ${ex_root}/install)
+
+include(ExternalProject)
+
+ExternalProject_Add(ex_lz4
+    GIT_REPOSITORY https://github.com/taosdata-contrib/lz4.git
+    GIT_TAG v1.9.3
+    GIT_SHALLOW TRUE
+    PREFIX ${ex_prefix}/lz4
+    # CMakeLists.txt not in root directory
+    SOURCE_SUBDIR build/cmake
+    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:STRING=${ex_install_prefix}/lz4
+    CMAKE_ARGS -DBUILD_SHARED_LIBS:BOOL=OFF -DBUILD_STATIC_LIBS:BOOL=ON
+    INSTALL_COMMAND ${CMAKE_COMMAND} --install .
+)
+
+set(ex_lz4_INC_DIR ${ex_install_prefix}/lz4/include)
+set(ex_lz4_LIB_DIR ${ex_install_prefix}/lz4/lib)
+
+set_target_properties(ex_lz4
+  PROPERTIES INC_DIR ${ex_lz4_INC_DIR}
+             LIB_DIR ${ex_lz4_LIB_DIR}
+             LIB_NAME lz4)
+
+ExternalProject_Add(ex_zlib
+    GIT_REPOSITORY https://github.com/taosdata-contrib/zlib.git
+    GIT_TAG v1.2.11
+    GIT_SHALLOW TRUE
+    PREFIX ${ex_prefix}/zlib
+    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:STRING=${ex_install_prefix}/zlib
+    CMAKE_ARGS -DCMAKE_C_FLAGS:STRING=-fPIC
+    INSTALL_COMMAND ${CMAKE_COMMAND} --install .
+    COMMAND ${CMAKE_COMMAND} -E remove ${ex_install_prefix}/zlib/lib/libz.so
+    COMMAND ${CMAKE_COMMAND} -E remove ${ex_install_prefix}/zlib/lib/libz.so.1
+    COMMAND ${CMAKE_COMMAND} -E remove ${ex_install_prefix}/zlib/lib/libz.so.1.2.11
+)
+
+set(ex_zlib_INC_DIR ${ex_install_prefix}/zlib/include)
+set(ex_zlib_LIB_DIR ${ex_install_prefix}/zlib/lib)
+
+set_target_properties(ex_zlib
+  PROPERTIES INC_DIR ${ex_zlib_INC_DIR}
+             LIB_DIR ${ex_zlib_LIB_DIR}
+             LIB_NAME z)
+
+# cjson
+ExternalProject_Add(ex_cjson
+    GIT_REPOSITORY https://github.com/taosdata-contrib/cJSON.git
+    GIT_TAG v1.7.15
+    GIT_SHALLOW TRUE
+    PREFIX ${ex_prefix}/cjson
+    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:STRING=${ex_install_prefix}/cjson
+    INSTALL_COMMAND ${CMAKE_COMMAND} --install .
+    )
+
+set(ex_cjson_INC_DIR ${ex_install_prefix}/cjson/include)
+set(ex_cjson_LIB_DIR ${ex_install_prefix}/cjson/lib)
+
+set_target_properties(ex_cjson
+  PROPERTIES INC_DIR ${ex_cjson_INC_DIR}/cjson
+             LIB_DIR ${ex_cjson_LIB_DIR}
+             LIB_NAME cjson)
+
+# libuv
+if(BUILD_WITH_UV)
+  ExternalProject_Add(ex_libuv
+      GIT_REPOSITORY https://github.com/libuv/libuv.git
+      GIT_TAG v1.44.2
+      GIT_SHALLOW TRUE
+      PREFIX ${ex_prefix}/libuv
+      CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:STRING=${ex_install_prefix}/libuv
+      CMAKE_ARGS -DCMAKE_C_FLAGS:STRING=-fPIC
+      INSTALL_COMMAND ${CMAKE_COMMAND} --install .
+      COMMAND ${CMAKE_COMMAND} -E remove ${ex_install_prefix}/libuv/lib/libuv.so
+      COMMAND ${CMAKE_COMMAND} -E remove ${ex_install_prefix}/libuv/lib/libuv.so.1
+      COMMAND ${CMAKE_COMMAND} -E remove ${ex_install_prefix}/libuv/lib/libuv.so.1.0.0
+      )
+
+  set(ex_libuv_INC_DIR ${ex_install_prefix}/libuv/include)
+  set(ex_libuv_LIB_DIR ${ex_install_prefix}/libuv/lib)
+
+  set_target_properties(ex_libuv
+    PROPERTIES INC_DIR ${ex_libuv_INC_DIR}
+               LIB_DIR ${ex_libuv_LIB_DIR}
+               LIB_NAME uv_a)
+endif()
+
