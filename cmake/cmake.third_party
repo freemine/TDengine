@@ -31,7 +31,6 @@ ExternalProject_Add(ex_zlib
     PREFIX ${ex_prefix}/zlib
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:STRING=${ex_install_prefix}/zlib
     CMAKE_ARGS -DCMAKE_C_FLAGS:STRING=-fPIC
-    CMAKE_ARGS --target zlibstatic
     INSTALL_COMMAND ${CMAKE_COMMAND} --install .
     COMMAND ${CMAKE_COMMAND} -E remove ${ex_install_prefix}/zlib/lib/libz.so
     COMMAND ${CMAKE_COMMAND} -E remove ${ex_install_prefix}/zlib/lib/libz.so.1
