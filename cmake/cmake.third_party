@@ -19,13 +19,10 @@ ExternalProject_Add(ex_lz4
 set(ex_lz4_INC_DIR ${ex_install_prefix}/lz4/include)
 set(ex_lz4_LIB_DIR ${ex_install_prefix}/lz4/lib)
 
-macro(depend_lz4 target)
-  add_dependencies(${target} ex_lz4)
-  target_include_directories(${target} PRIVATE ${ex_lz4_INC_DIR})
-  target_link_directories(${target} INTERFACE ${ex_lz4_LIB_DIR})
-  target_link_libraries(${target} INTERFACE lz4)
-endmacro()
-
+set_target_properties(ex_lz4
+  PROPERTIES INC_DIR ${ex_lz4_INC_DIR}
+             LIB_DIR ${ex_lz4_LIB_DIR}
+             LIB_NAME lz4)
 
 ExternalProject_Add(ex_zlib
     GIT_REPOSITORY https://github.com/taosdata-contrib/zlib.git
@@ -44,12 +41,10 @@ ExternalProject_Add(ex_zlib
 set(ex_zlib_INC_DIR ${ex_install_prefix}/zlib/include)
 set(ex_zlib_LIB_DIR ${ex_install_prefix}/zlib/lib)
 
-macro(depend_zlib target)
-  add_dependencies(${target} ex_zlib)
-  target_include_directories(${target} PRIVATE ${ex_zlib_INC_DIR})
-  target_link_directories(${target} INTERFACE ${ex_zlib_LIB_DIR})
-  target_link_libraries(${target} PRIVATE z)
-endmacro()
+set_target_properties(ex_zlib
+  PROPERTIES INC_DIR ${ex_zlib_INC_DIR}
+             LIB_DIR ${ex_zlib_LIB_DIR}
+             LIB_NAME z)
 
 # cjson
 ExternalProject_Add(ex_cjson
@@ -58,20 +53,38 @@ ExternalProject_Add(ex_cjson
     GIT_SHALLOW TRUE
     PREFIX ${ex_prefix}/cjson
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:STRING=${ex_install_prefix}/cjson
-    CMAKE_ARGS -DBUILD_SHARED_LIBS:BOOL=OFF
     INSTALL_COMMAND ${CMAKE_COMMAND} --install .
     )
 
 set(ex_cjson_INC_DIR ${ex_install_prefix}/cjson/include)
 set(ex_cjson_LIB_DIR ${ex_install_prefix}/cjson/lib)
 
-macro(depend_cjson target)
-  add_dependencies(${target} ex_cjson)
+set_target_properties(ex_cjson
+  PROPERTIES INC_DIR ${ex_cjson_INC_DIR}/cjson
+             LIB_DIR ${ex_cjson_LIB_DIR}
+             LIB_NAME cjson)
 
-  # no, don't do this
-  target_include_directories(${target} PUBLIC ${ex_cjson_INC_DIR}/cjson)
+# libuv
+if(BUILD_WITH_UV)
+  ExternalProject_Add(ex_libuv
+      GIT_REPOSITORY https://github.com/libuv/libuv.git
+      GIT_TAG v1.44.2
+      GIT_SHALLOW TRUE
+      PREFIX ${ex_prefix}/libuv
+      CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:STRING=${ex_install_prefix}/libuv
+      CMAKE_ARGS -DCMAKE_C_FLAGS:STRING=-fPIC
+      INSTALL_COMMAND ${CMAKE_COMMAND} --install .
+      COMMAND ${CMAKE_COMMAND} -E remove ${ex_install_prefix}/libuv/lib/libuv.so
+      COMMAND ${CMAKE_COMMAND} -E remove ${ex_install_prefix}/libuv/lib/libuv.so.1
+      COMMAND ${CMAKE_COMMAND} -E remove ${ex_install_prefix}/libuv/lib/libuv.so.1.0.0
+      )
 
-  target_link_directories(${target} INTERFACE ${ex_cjson_LIB_DIR})
-  target_link_libraries(${target} PRIVATE cjson)
-endmacro()
+  set(ex_libuv_INC_DIR ${ex_install_prefix}/libuv/include)
+  set(ex_libuv_LIB_DIR ${ex_install_prefix}/libuv/lib)
+
+  set_target_properties(ex_libuv
+    PROPERTIES INC_DIR ${ex_libuv_INC_DIR}
+               LIB_DIR ${ex_libuv_LIB_DIR}
+               LIB_NAME uv_a)
+endif()
 

@@ -8,6 +8,7 @@ target_include_directories(
     PUBLIC "${TD_SOURCE_DIR}/contrib/pthread"
     PUBLIC "${TD_SOURCE_DIR}/contrib/iconv"
     PUBLIC "${TD_SOURCE_DIR}/contrib/msvcregex"
+    PRIVATE $<TARGET_PROPERTY:ex_zlib,INC_DIR>
 )
 # iconv
 if(TD_WINDOWS)
@@ -16,10 +17,10 @@ else()
     find_path(IconvApiIncludes iconv.h PATHS)
 endif(TD_WINDOWS)
 if(NOT IconvApiIncludes)
-    add_definitions(-DDISALLOW_NCHAR_WITHOUT_ICONV) 
+    add_definitions(-DDISALLOW_NCHAR_WITHOUT_ICONV)
 endif ()
 if(USE_TD_MEMORY)
-    add_definitions(-DUSE_TD_MEMORY) 
+    add_definitions(-DUSE_TD_MEMORY)
 endif ()
 if(BUILD_ADDR2LINE)
     if(NOT TD_WINDOWS)
@@ -40,7 +41,8 @@ target_link_libraries(
     os
     PUBLIC pthread
 )
-depend_zlib(os)
+target_link_directories(os PRIVATE $<TARGET_PROPERTY:ex_zlib,LIB_DIR>)
+target_link_libraries(os PRIVATE $<TARGET_PROPERTY:ex_zlib,LIB_NAME>)
 
 if(TD_WINDOWS)
     target_link_libraries(

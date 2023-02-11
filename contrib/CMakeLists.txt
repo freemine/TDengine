@@ -88,11 +88,6 @@ if(${BUILD_WITH_TRAFT})
     SET(BUILD_WITH_UV ON CACHE BOOL "traft need libuv" FORCE)
 endif(${BUILD_WITH_TRAFT})
 
-#libuv
-if(${BUILD_WITH_UV})
-    cat("${TD_SUPPORT_DIR}/libuv_CMakeLists.txt.in" ${CONTRIB_TMP_FILE})
-endif(${BUILD_WITH_UV})
-
 # bdb
 if(${BUILD_WITH_BDB})
     cat("${TD_SUPPORT_DIR}/bdb_CMakeLists.txt.in" ${CONTRIB_TMP_FILE})
@@ -163,8 +158,8 @@ if(${BUILD_TEST})
             PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/cpp-stub/src_darwin>
         )
     endif(${TD_DARWIN})
-    
-    
+
+
 endif(${BUILD_TEST})
 
 # leveldb
@@ -199,10 +194,10 @@ if(${BUILD_WITH_LUCENE})
     option(ENABLE_TEST "Enable the tests" OFF)
     add_subdirectory(lucene EXCLUDE_FROM_ALL)
     target_include_directories(
-      lucene++ 
+      lucene++
       PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lucene/include>
-    ) 
-     
+    )
+
 endif(${BUILD_WITH_LUCENE})
 
 # NuRaft
@@ -262,7 +257,7 @@ if(${BUILD_MSVCREGEX})
     target_include_directories(msvcregex
         PRIVATE "msvcregex"
     )
-    target_link_libraries(msvcregex 
+    target_link_libraries(msvcregex
         INTERFACE Shell32
     )
     SET_TARGET_PROPERTIES(msvcregex PROPERTIES OUTPUT_NAME msvcregex)
@@ -304,17 +299,6 @@ if(${BUILD_WITH_TRAFT})
     # )
 endif(${BUILD_WITH_TRAFT})
 
-# LIBUV
-if(${BUILD_WITH_UV})
-    if (TD_WINDOWS)
-        # There is no GetHostNameW function on win7.
-        file(READ "libuv/src/win/util.c" LIBUV_WIN_UTIL_CONTENT)
-        string(REPLACE "if (GetHostNameW(buf, UV_MAXHOSTNAMESIZE" "DWORD  nSize = UV_MAXHOSTNAMESIZE;\n  if (GetComputerNameW(buf, &nSize" LIBUV_WIN_UTIL_CONTENT "${LIBUV_WIN_UTIL_CONTENT}")
-        file(WRITE "libuv/src/win/util.c" "${LIBUV_WIN_UTIL_CONTENT}")
-    endif ()
-    add_subdirectory(libuv EXCLUDE_FROM_ALL)
-endif(${BUILD_WITH_UV})
-
 # BDB
 if(${BUILD_WITH_BDB})
     add_library(bdb STATIC IMPORTED GLOBAL)
@@ -322,8 +306,8 @@ if(${BUILD_WITH_BDB})
         IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/bdb/libdb.a"
         INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/bdb"
     )
-    target_link_libraries(bdb 
-        INTERFACE pthread 
+    target_link_libraries(bdb
+        INTERFACE pthread
     )
 endif(${BUILD_WITH_BDB})
 
@@ -335,12 +319,12 @@ if(${BUILD_WITH_SQLITE})
         IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/sqlite/.libs/libsqlite3.a"
         INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/sqlite"
     )
-    target_link_libraries(sqlite 
-        INTERFACE m 
-        INTERFACE pthread 
+    target_link_libraries(sqlite
+        INTERFACE m
+        INTERFACE pthread
     )
     if(NOT TD_WINDOWS)
-        target_link_libraries(sqlite 
+        target_link_libraries(sqlite
             INTERFACE dl
         )
     endif(NOT TD_WINDOWS)
@@ -348,22 +332,22 @@ endif(${BUILD_WITH_SQLITE})
 
 # addr2line
 if(${BUILD_ADDR2LINE})
-    if(NOT ${TD_WINDOWS})    
-        check_include_file( "sys/types.h"     HAVE_SYS_TYPES_H) 
-        check_include_file( "sys/stat.h"      HAVE_SYS_STAT_H ) 
-        check_include_file( "inttypes.h"      HAVE_INTTYPES_H   ) 
-        check_include_file( "stddef.h"        HAVE_STDDEF_H   ) 
-        check_include_file( "stdlib.h"        HAVE_STDLIB_H   ) 
-        check_include_file( "string.h"        HAVE_STRING_H   ) 
-        check_include_file( "memory.h"        HAVE_MEMORY_H   ) 
-        check_include_file( "strings.h"       HAVE_STRINGS_H  ) 
+    if(NOT ${TD_WINDOWS})
+        check_include_file( "sys/types.h"     HAVE_SYS_TYPES_H)
+        check_include_file( "sys/stat.h"      HAVE_SYS_STAT_H )
+        check_include_file( "inttypes.h"      HAVE_INTTYPES_H   )
+        check_include_file( "stddef.h"        HAVE_STDDEF_H   )
+        check_include_file( "stdlib.h"        HAVE_STDLIB_H   )
+        check_include_file( "string.h"        HAVE_STRING_H   )
+        check_include_file( "memory.h"        HAVE_MEMORY_H   )
+        check_include_file( "strings.h"       HAVE_STRINGS_H  )
         check_include_file( "stdint.h"        HAVE_STDINT_H   )
         check_include_file( "unistd.h"        HAVE_UNISTD_H   )
         check_include_file( "sgidefs.h"       HAVE_SGIDEFS_H  )
         check_include_file( "stdafx.h"        HAVE_STDAFX_H   )
-        check_include_file( "elf.h"           HAVE_ELF_H      ) 
-        check_include_file( "libelf.h"        HAVE_LIBELF_H   ) 
-        check_include_file( "libelf/libelf.h" HAVE_LIBELF_LIBELF_H) 
+        check_include_file( "elf.h"           HAVE_ELF_H      )
+        check_include_file( "libelf.h"        HAVE_LIBELF_H   )
+        check_include_file( "libelf/libelf.h" HAVE_LIBELF_LIBELF_H)
         check_include_file( "alloca.h"        HAVE_ALLOCA_H   )
         check_include_file( "elfaccess.h"     HAVE_ELFACCESS_H)
         check_include_file( "sys/elf_386.h"   HAVE_SYS_ELF_386_H  )
@@ -371,7 +355,7 @@ if(${BUILD_ADDR2LINE})
         check_include_file( "sys/elf_sparc.h" HAVE_SYS_ELF_SPARC_H)
         check_include_file( "sys/ia64/elf.h"  HAVE_SYS_IA64_ELF_H )
         set(VERSION 0.3.1)
-        set(PACKAGE_VERSION "\"${VERSION}\"") 
+        set(PACKAGE_VERSION "\"${VERSION}\"")
         configure_file(libdwarf/cmake/config.h.cmake config.h)
         file(GLOB_RECURSE LIBDWARF_SOURCES "libdwarf/src/lib/libdwarf/*.c")
         add_library(libdwarf STATIC ${LIBDWARF_SOURCES})
