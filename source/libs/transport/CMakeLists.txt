@@ -1,6 +1,6 @@
 aux_source_directory(src TRANSPORT_SRC)
 add_library(transport STATIC ${TRANSPORT_SRC})
-add_dependencies(transport ex_libuv)
+add_dependencies(transport ex_libuv os)
 
 target_include_directories(
     transport

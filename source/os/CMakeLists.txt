@@ -1,5 +1,6 @@
 aux_source_directory(src OS_SRC)
 add_library(os STATIC ${OS_SRC})
+add_dependencies(os ex_zlib)
 target_include_directories(
     os
     PUBLIC "${TD_SOURCE_DIR}/include/os"
@@ -8,7 +9,7 @@ target_include_directories(
     PUBLIC "${TD_SOURCE_DIR}/contrib/pthread"
     PUBLIC "${TD_SOURCE_DIR}/contrib/iconv"
     PUBLIC "${TD_SOURCE_DIR}/contrib/msvcregex"
-    PRIVATE $<TARGET_PROPERTY:ex_zlib,INC_DIR>
+    PUBLIC $<TARGET_PROPERTY:ex_zlib,INC_DIR>
 )
 # iconv
 if(TD_WINDOWS)
@@ -41,7 +42,7 @@ target_link_libraries(
     os
     PUBLIC pthread
 )
-target_link_directories(os PRIVATE $<TARGET_PROPERTY:ex_zlib,LIB_DIR>)
+target_link_directories(os INTERFACE $<TARGET_PROPERTY:ex_zlib,LIB_DIR>)
 target_link_libraries(os PRIVATE $<TARGET_PROPERTY:ex_zlib,LIB_NAME>)
 
 if(TD_WINDOWS)
