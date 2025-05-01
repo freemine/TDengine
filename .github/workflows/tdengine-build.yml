@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   build:
-    name: Run on ${{ matrix.os }}
+    name: Run on ${{ matrix.os }} with ${{ matrix.build_type }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -123,6 +123,11 @@ jobs:
             snappy \
             zlib
 
+      - name: Install dependencies on Windows
+        if: runner.os == 'Windows'
+        run: |
+          choco install jom --yes
+
       - name: Show software version
         run: |
           cmake --version
@@ -131,11 +136,6 @@ jobs:
         uses: lukka/get-cmake@latest
         with:
           cmakeVersion: 3.31.6
-
-      - name: Install dependencies on Windows
-        if: runner.os == 'Windows'
-        run: |
-          choco install jom --yes
 
       - name: Cache externals built
         uses: actions/cache@v4
@@ -149,7 +149,6 @@ jobs:
         continue-on-error: false
         run: |
           echo ${TD_CONFIG}
-          false
           ./build.sh gen
           ./build.sh bld --target build_externals -v
 
@@ -162,7 +161,6 @@ jobs:
           set CL=/MP8
           echo %CL%
           echo %TD_CONFIG%
-          exit 1
           call .\build.bat gen -G "NMake Makefiles JOM"
           call .\build.bat bld --target build_externals -v
 
@@ -170,7 +168,6 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           echo ${TD_CONFIG}
-          false
           ./build.sh gen -DTD_EXTERNALS_USE_ONLY:BOOL=ON
           ./build.sh bld -v
           ./build.sh install
@@ -189,7 +186,6 @@ jobs:
           set CL=/MP8
           echo %CL%
           echo %TD_CONFIG%
-          exit 1
           call .\build.bat gen -DTD_EXTERNALS_USE_ONLY:BOOL=ON -G "NMake Makefiles JOM"
           call .\build.bat bld -v
           call .\build.bat install
