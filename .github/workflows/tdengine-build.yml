@@ -46,17 +46,18 @@ jobs:
         run: |
           echo "The number of CPU cores is: ${{ env.CPU_CORES }}"
 
-      - if: runner.os == 'macOS'
-        name: prepare install path
+      - name: prepare install path
         run: |
-          sudo mkdir -p /usr/local/lib
-          sudo mkdir -p /usr/local/include
+          if [ "${{ runner.os }}" == "macOS" ]; then
+            sudo mkdir -p /usr/local/lib
+            sudo mkdir -p /usr/local/include
+          fi
 
       - name: Checkout the repository
         uses: actions/checkout@v4
 
-      - if: runner.os != 'Windows'
-        name: Cache Go modules on Linux and macOS
+      - name: Cache Go modules on Linux and macOS
+        if: runner.os != 'Windows'
         uses: actions/cache@v3
         with:
           path: |
@@ -66,8 +67,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - if: runner.os == 'macOS'
-        name: Cache Homebrew on macOS
+      - name: Cache Homebrew on macOS
+        if: runner.os == 'macOS'
         uses: actions/cache@v3
         with:
           path: /usr/local/Homebrew
@@ -75,8 +76,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-brew-
 
-      - if: runner.os == 'Windows'
-        name: Cache Go modules on Windows
+      - name: Cache Go modules on Windows
+        if: runner.os == 'Windows'
         uses: actions/cache@v3
         with:
           path: |
@@ -91,51 +92,46 @@ jobs:
         with:
           go-version: 1.23
 
-      - if: runner.os == 'Linux'
-        name: Install dependencies on Linux
+      - name: Install dependencies on ${{ matrix.os }}
         run: |
-          sudo apt update -y
-          sudo apt install -y \
-            build-essential \
-            cmake \
-            gawk \
-            libgeos-dev \
-            libjansson-dev \
-            liblzma-dev \
-            libsnappy-dev \
-            libssl-dev \
-            libz-dev \
-            pkg-config \
-            zlib1g
-
-      - if: runner.os == 'macOS'
-        name: Install dependencies on macOS
-        run: |
-          brew update
-          brew install \
-            argp-standalone \
-            gawk \
-            gflags \
-            geos \
-            jansson \
-            openssl \
-            pkg-config \
-            snappy \
-            zlib
-
-      - if: runner.os == 'Windows'
-        name: Install dependencies on Windows
-        run: |
-          choco install jom --yes
-
-      - name: Show software version
-        run: |
-          cmake --version
+          if [ "${{ runner.os }}" == "Linux" ]; then
+            sudo apt update -y
+            sudo apt install -y \
+              build-essential \
+              cmake \
+              gawk \
+              libgeos-dev \
+              libjansson-dev \
+              liblzma-dev \
+              libsnappy-dev \
+              libssl-dev \
+              libz-dev \
+              pkg-config \
+              zlib1g
+          elif [ "${{ runner.os }}" == "macOS" ]; then
+            brew update
+            brew install \
+              argp-standalone \
+              gawk \
+              gflags \
+              geos \
+              jansson \
+              openssl \
+              pkg-config \
+              snappy \
+              zlib
+          elif [ "${{ runner.os }}" == "Windows" ]; then
+            choco install jom --yes
+          fi
 
       - name: Get CMake
         uses: lukka/get-cmake@latest
         with:
           cmakeVersion: 3.31.6
+
+      - name: Show software version
+        run: |
+          cmake --version
 
       - name: Cache externals built
         uses: actions/cache@v4
@@ -144,16 +140,16 @@ jobs:
           path: ${{ github.workspace }}/.externals
           key: ${{ runner.os }}-${{ matrix.os }}-${{ matrix.build_type }}-${{ hashFiles('cmake/external.cmake', 'cmake/in/**') }}-build-ext-v3 # this is tailing cache-version-tick
 
-      - if: ${{ steps.cache-ext.outputs.cache-hit != 'true' && runner.os != 'Windows' }}
-        name: Build externals on ${{ matrix.os }} with ${{ matrix.build_type }}
+      - name: Build externals on ${{ matrix.os }} with ${{ matrix.build_type }}
+        if: ${{ steps.cache-ext.outputs.cache-hit != 'true' && runner.os != 'Windows' }}
         continue-on-error: false
         run: |
           echo ${TD_CONFIG}
           ./build.sh gen
           ./build.sh bld --target build_externals -v
 
-      - if: ${{ steps.cache-ext.outputs.cache-hit != 'true' && runner.os == 'Windows' }}
-        name: Build externals on ${{ matrix.os }} with ${{ matrix.build_type }}
+      - name: Build externals on ${{ matrix.os }} with ${{ matrix.build_type }}
+        if: ${{ steps.cache-ext.outputs.cache-hit != 'true' && runner.os == 'Windows' }}
         continue-on-error: false
         shell: cmd
         run: |
@@ -164,8 +160,8 @@ jobs:
           call .\build.bat gen -G "NMake Makefiles JOM"
           call .\build.bat bld --target build_externals -v
 
-      - if: runner.os != 'Windows'
-        name: Build TDengine on ${{ matrix.os }} with ${{ matrix.build_type }}
+      - name: Build TDengine on ${{ matrix.os }} with ${{ matrix.build_type }}
+        if: runner.os != 'Windows'
         run: |
           echo ${TD_CONFIG}
           ./build.sh gen -DTD_EXTERNALS_USE_ONLY:BOOL=ON
@@ -178,8 +174,8 @@ jobs:
           taosd --help
           taosadapter --help
 
-      - if: runner.os == 'Windows'
-        name: Build TDengine on ${{ matrix.os }} with ${{ matrix.build_type }}
+      - name: Build TDengine on ${{ matrix.os }} with ${{ matrix.build_type }}
+        if: runner.os == 'Windows'
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
@@ -200,20 +196,20 @@ jobs:
           taosd.exe --help
           taosadapter.exe --help
 
-      - if: runner.os == 'Linux'
-        name: Statistics on ${{ matrix.os }} with ${{ matrix.build_type }}
+      - name: Statistics on ${{ matrix.os }} with ${{ matrix.build_type }}
+        if: runner.os == 'Linux'
         run: |
           find ${{ github.workspace }}/debug/build/lib -type f -name "*.so" -print0 | xargs -0 ldd || true
           find ${{ github.workspace }}/debug/build/bin -type f -print0 | xargs -0 ldd || true
 
-      - if: runner.os == 'macOS'
-        name: Statistics on ${{ matrix.os }} with ${{ matrix.build_type }}
+      - name: Statistics on ${{ matrix.os }} with ${{ matrix.build_type }}
+        if: runner.os == 'macOS'
         run: |
           find ${{ github.workspace }}/debug/build/lib -type f -name "*.dylib" -print0 | xargs -0 otool -L || true
           find ${{ github.workspace }}/debug/build/bin -type f -print0 | xargs -0 otool -L || true
 
-      - if: runner.os != 'Windows'
-        name: Start taosd on ${{ matrix.os }} with ${{ matrix.build_type }}
+      - name: Start taosd on ${{ matrix.os }} with ${{ matrix.build_type }}
+        if: runner.os != 'Windows'
         run: |
           taosd -V
           taosadapter -V
@@ -226,15 +222,15 @@ jobs:
           taos -s "show databases"
           taos -s "show dnodes"
 
-      - if: runner.os != 'Windows'
-        name: Run tests with taosBenchmark on ${{ matrix.os }} with ${{ matrix.build_type }}
+      - name: Run tests with taosBenchmark on ${{ matrix.os }} with ${{ matrix.build_type }}
+        if: runner.os != 'Windows'
         run: |
           taos -s "show databases"
           taosBenchmark -t 10 -n 10 -s 1744951233012 -y
           taos -s "select count(*) from test.meters"
 
-      - if: runner.os != 'Windows'
-        name: Clean up on ${{ matrix.os }} with ${{ matrix.build_type }}
+      - name: Clean up on ${{ matrix.os }} with ${{ matrix.build_type }}
+        if: runner.os != 'Windows'
         run: |
           ./build.sh stop
 
