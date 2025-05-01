@@ -46,8 +46,8 @@ jobs:
         run: |
           echo "The number of CPU cores is: ${{ env.CPU_CORES }}"
 
-      - name: prepare install path
-        if: runner.os == 'macOS'
+      - if: runner.os == 'macOS'
+        name: prepare install path
         run: |
           sudo mkdir -p /usr/local/lib
           sudo mkdir -p /usr/local/include
@@ -55,8 +55,8 @@ jobs:
       - name: Checkout the repository
         uses: actions/checkout@v4
 
-      - name: Cache Go modules on Linux and macOS
-        if: runner.os != 'Windows'
+      - if: runner.os != 'Windows'
+        name: Cache Go modules on Linux and macOS
         uses: actions/cache@v3
         with:
           path: |
@@ -66,8 +66,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Cache Homebrew on macOS
-        if: runner.os == 'macOS'
+      - if: runner.os == 'macOS'
+        name: Cache Homebrew on macOS
         uses: actions/cache@v3
         with:
           path: /usr/local/Homebrew
@@ -75,8 +75,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-brew-
 
-      - name: Cache Go modules on Windows
-        if: runner.os == 'Windows'
+      - if: runner.os == 'Windows'
+        name: Cache Go modules on Windows
         uses: actions/cache@v3
         with:
           path: |
@@ -91,8 +91,8 @@ jobs:
         with:
           go-version: 1.23
 
-      - name: Install dependencies on Linux
-        if: runner.os == 'Linux'
+      - if: runner.os == 'Linux'
+        name: Install dependencies on Linux
         run: |
           sudo apt update -y
           sudo apt install -y \
@@ -108,8 +108,8 @@ jobs:
             pkg-config \
             zlib1g
 
-      - name: Install dependencies on macOS
-        if: runner.os == 'macOS'
+      - if: runner.os == 'macOS'
+        name: Install dependencies on macOS
         run: |
           brew update
           brew install \
@@ -123,8 +123,8 @@ jobs:
             snappy \
             zlib
 
-      - name: Install dependencies on Windows
-        if: runner.os == 'Windows'
+      - if: runner.os == 'Windows'
+        name: Install dependencies on Windows
         run: |
           choco install jom --yes
 
@@ -144,16 +144,16 @@ jobs:
           path: ${{ github.workspace }}/.externals
           key: ${{ runner.os }}-${{ matrix.os }}-${{ matrix.build_type }}-${{ hashFiles('cmake/external.cmake', 'cmake/in/**') }}-build-ext-v3 # this is tailing cache-version-tick
 
-      - name: Build externals on ${{ matrix.os }} with ${{ matrix.build_type }}
-        if: ${{ steps.cache-ext.outputs.cache-hit != 'true' && runner.os != 'Windows' }}
+      - if: ${{ steps.cache-ext.outputs.cache-hit != 'true' && runner.os != 'Windows' }}
+        name: Build externals on ${{ matrix.os }} with ${{ matrix.build_type }}
         continue-on-error: false
         run: |
           echo ${TD_CONFIG}
           ./build.sh gen
           ./build.sh bld --target build_externals -v
 
-      - name: Build externals on ${{ matrix.os }} with ${{ matrix.build_type }}
-        if: ${{ steps.cache-ext.outputs.cache-hit != 'true' && runner.os == 'Windows' }}
+      - if: ${{ steps.cache-ext.outputs.cache-hit != 'true' && runner.os == 'Windows' }}
+        name: Build externals on ${{ matrix.os }} with ${{ matrix.build_type }}
         continue-on-error: false
         shell: cmd
         run: |
@@ -164,8 +164,8 @@ jobs:
           call .\build.bat gen -G "NMake Makefiles JOM"
           call .\build.bat bld --target build_externals -v
 
-      - name: Build TDengine on ${{ matrix.os }} with ${{ matrix.build_type }}
-        if: runner.os != 'Windows'
+      - if: runner.os != 'Windows'
+        name: Build TDengine on ${{ matrix.os }} with ${{ matrix.build_type }}
         run: |
           echo ${TD_CONFIG}
           ./build.sh gen -DTD_EXTERNALS_USE_ONLY:BOOL=ON
@@ -178,8 +178,8 @@ jobs:
           taosd --help
           taosadapter --help
 
-      - name: Build TDengine on ${{ matrix.os }} with ${{ matrix.build_type }}
-        if: runner.os == 'Windows'
+      - if: runner.os == 'Windows'
+        name: Build TDengine on ${{ matrix.os }} with ${{ matrix.build_type }}
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
@@ -200,20 +200,20 @@ jobs:
           taosd.exe --help
           taosadapter.exe --help
 
-      - name: Statistics on ${{ matrix.os }} with ${{ matrix.build_type }}
-        if: runner.os == 'Linux'
+      - if: runner.os == 'Linux'
+        name: Statistics on ${{ matrix.os }} with ${{ matrix.build_type }}
         run: |
           find ${{ github.workspace }}/debug/build/lib -type f -name "*.so" -print0 | xargs -0 ldd || true
           find ${{ github.workspace }}/debug/build/bin -type f -print0 | xargs -0 ldd || true
 
-      - name: Statistics on ${{ matrix.os }} with ${{ matrix.build_type }}
-        if: runner.os == 'macOS'
+      - if: runner.os == 'macOS'
+        name: Statistics on ${{ matrix.os }} with ${{ matrix.build_type }}
         run: |
           find ${{ github.workspace }}/debug/build/lib -type f -name "*.dylib" -print0 | xargs -0 otool -L || true
           find ${{ github.workspace }}/debug/build/bin -type f -print0 | xargs -0 otool -L || true
 
-      - name: Start taosd on ${{ matrix.os }} with ${{ matrix.build_type }}
-        if: runner.os != 'Windows'
+      - if: runner.os != 'Windows'
+        name: Start taosd on ${{ matrix.os }} with ${{ matrix.build_type }}
         run: |
           taosd -V
           taosadapter -V
@@ -226,15 +226,15 @@ jobs:
           taos -s "show databases"
           taos -s "show dnodes"
 
-      - name: Run tests with taosBenchmark on ${{ matrix.os }} with ${{ matrix.build_type }}
-        if: runner.os != 'Windows'
+      - if: runner.os != 'Windows'
+        name: Run tests with taosBenchmark on ${{ matrix.os }} with ${{ matrix.build_type }}
         run: |
           taos -s "show databases"
           taosBenchmark -t 10 -n 10 -s 1744951233012 -y
           taos -s "select count(*) from test.meters"
 
-      - name: Clean up on ${{ matrix.os }} with ${{ matrix.build_type }}
-        if: runner.os != 'Windows'
+      - if: runner.os != 'Windows'
+        name: Clean up on ${{ matrix.os }} with ${{ matrix.build_type }}
         run: |
           ./build.sh stop
 
