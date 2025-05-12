@@ -1,20 +1,24 @@
 name: TDengine Build
 
 on:
-  pull_request:
+  push:
     branches:
-      - 'main'
-      - '3.0'
-      - '3.1'
-      - '3.3.6'
-      - 'enh/cmake-TD-33848'
+      - freemine.fix.ipv4
 
-    paths-ignore:
-      - 'docs/**'
-      - 'packaging/**'
-      - 'tests/**'
-      - '**/*.md'
-      - 'test/**'
+  # pull_request:
+  #   branches:
+  #     - 'main'
+  #     - '3.0'
+  #     - '3.1'
+  #     - '3.3.6'
+  #     - 'enh/cmake-TD-33848'
+
+  #   paths-ignore:
+  #     - 'docs/**'
+  #     - 'packaging/**'
+  #     - 'tests/**'
+  #     - '**/*.md'
+  #     - 'test/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -28,12 +32,7 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - ubuntu-22.04
           - ubuntu-24.04
-          - macos-13
-          - macos-14
-          - macos-15
-          - windows-2022
 
     steps:
       - name: Get CPU Cores
@@ -178,6 +177,7 @@ jobs:
           which taosadapter
           which taoskeeper
           which taos
+          taos --help
           taosd --help
           taosadapter --help
 
@@ -221,9 +221,13 @@ jobs:
           taosBenchmark -V
           taos -V
           ./build.sh start
+          echo "cat /var/log/taos/taosdlog.0 for the first time"
+          cat /var/log/taos/taosdlog.0 || true
           pgrep -l taos
           sleep 6     # NOTE: wait for taosd initialization to complete
           pgrep -l taos
+          echo "cat /var/log/taos/taosdlog.0 for the first time"
+          cat /var/log/taos/taosdlog.0 || true
           taos -s "show databases"
           taos -s "show dnodes"
 
